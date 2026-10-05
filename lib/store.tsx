@@ -43,13 +43,13 @@ interface Store {
   /** Boleh menyimpulkan tugas di matkul ini? (admin / PJ matkul tsb) */
   bisaSimpulkan: (matkulId: string) => boolean;
   addCatatan: (matkulId: string, isi: string) => void;
-  addUsulan: (input: {
-    matkulId: string;
-    judul: string;
-    deadline: string;
-    prioritas: Prioritas;
-    pertemuan?: number;
-  }) => void;
+  /**
+   * Lapor usulan cepat = catatan info ringan untuk matkul tsb.
+   * BUKAN tugas resmi. PJ menyimpulkannya jadi tugas resmi di halaman RPS.
+   */
+  addUsulan: (matkulId: string, isi: string) => void;
+  /** Hapus catatan/usulan (pembuatnya, admin, atau PJ matkul tsb). */
+  hapusCatatan: (id: string) => void;
   finalizeTugas: (input: {
     matkulId: string;
     judul: string;
@@ -61,8 +61,6 @@ interface Store {
   }) => void;
   /** Pindahkan ke / keluarkan dari Bank Arsip (admin & PJ). */
   arsipkan: (id: string, nilai: boolean) => void;
-  /** Ubah usulan menjadi tugas resmi (admin & PJ). */
-  jadikanResmi: (id: string) => void;
   /** Hapus tugas/usulan (admin & PJ, atau pembuatnya). */
   hapusTugas: (id: string) => void;
   /** Ubah isi tugas resmi (admin & PJ): judul, rincian, tanggal, prioritas, pertemuan. */
@@ -140,8 +138,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setUser(saved.user);
     setUsers(saved.users.length ? saved.users : seedUsers());
     setMatkul(saved.matkul.length ? saved.matkul : seedMatkul);
-    setTugas(saved.tugas.length || saved.catatan.length ? saved.tugas : seedTugas());
-    setCatatan(saved.catatan.length || saved.tugas.length ? saved.catatan : seedCatatan());
+    // Migrasi: usulan model lama (tugas berstatus usulan) diubah jadi catatan info,
+    // agar alur baru konsisten: usulan = info ringan, resmi = via simpulan RPS.
+    const tugasLama = saved.tugas ?? [];
+    const migrasi: Catatan[] = tugasLama
+      .filter((t) => t.status === "usulan")
+      .map((t) => ({
+        id: `c-mig-${t.id}`,
+        matkulId: t.matkulId,
+        isi: t.judul,
+        oleh: t.dibuatOleh || "Anggota",
+        createdAt: new Date().toISOString(),
+      }));
+    const tugasBersih = tugasLama.filter((t) => t.status !== "usulan");
+    const catatanLama = saved.catatan ?? [];
+    const catatanBaru = [
+      ...catatanLama,
+      ...migrasi.filter((m) => !catatanLama.some((c) => c.id === m.id)),
+    ];
+    setTugas(tugasBersih.length || catatanBaru.length ? tugasBersih : seedTugas());
+    setCatatan(catatanBaru.length || tugasBersih.length ? catatanBaru : seedCatatan());
     setAktivitas(saved.aktivitas?.length ? saved.aktivitas : seedAktivitas());
     setReady(true);
   }, []);
@@ -327,24 +343,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         catat("resmi", `menerbitkan tugas resmi “${input.judul}”`, saya.nama);
       },
-      addUsulan: (input) => {
+      addUsulan: (matkulId, isi) => {
         if (!user) return;
-        setTugas((p) => [
+        const teks = isi.trim();
+        if (!teks) return;
+        const namaMk = matkul.find((x) => x.id === matkulId)?.nama ?? "matkul";
+        setCatatan((p) => [
           {
-            id: `t-${Date.now()}`,
-            matkulId: input.matkulId,
-            judul: input.judul,
-            deskripsi: "Usulan dari papan tugas — menunggu disimpulkan PJ/admin.",
-            deadline: akhirHari(input.deadline),
-            prioritas: input.prioritas,
-            pertemuan: input.pertemuan,
-            status: "usulan",
-            dibuatOleh: user.nama,
-            subtask: [],
+            id: `c-${Date.now()}`,
+            matkulId,
+            isi: teks,
+            oleh: user.nama,
+            createdAt: new Date().toISOString(),
           },
           ...p,
         ]);
-        catat("usulan", `mengusulkan “${input.judul}”`, user.nama);
+        catat("usulan", `melaporkan info di ${namaMk}`, user.nama);
+      },
+      hapusCatatan: (id) => {
+        const target = catatan.find((c) => c.id === id);
+        const saya = user;
+        if (!target || !saya) return;
+        // pembuat sendiri boleh; sisanya hanya admin/PJ matkul tsb
+        if (target.oleh !== saya.nama && !bolehKelola(saya, matkul, target.matkulId)) return;
+        setCatatan((p) => p.filter((c) => c.id !== id));
       },
       updateTugasStatus: (id, status) =>
         setTugas((p) => p.map((t) => (t.id === id ? { ...t, status } : t))),
@@ -360,19 +382,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : `mengeluarkan “${target.judul}” dari arsip`,
           saya.nama
         );
-      },
-      jadikanResmi: (id) => {
-        const target = tugas.find((t) => t.id === id);
-        const saya = user;
-        if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
-        setTugas((p) =>
-          p.map((t) =>
-            t.id === id
-              ? { ...t, status: "resmi" as const, disimpulkanOleh: saya.nama }
-              : t
-          )
-        );
-        catat("resmi", `menyetujui usulan “${target.judul}” jadi tugas resmi`, saya.nama);
       },
       hapusTugas: (id) => {
         const target = tugas.find((t) => t.id === id);
