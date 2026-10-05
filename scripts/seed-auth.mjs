@@ -5,7 +5,7 @@
  *   1. Isi .env.local: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
  *   2. node scripts/seed-auth.mjs
  *
- * Email: <NIM>@siswa.tongban.id (admin: email asli). Password = NIM.
+ * Email: <NIM>@siswa.bedebest.id (admin: email asli). Password = NIM.
  * Aman dijalankan ulang — user yang sudah ada dilewati (diupdate passwordnya).
  */
 import { readFileSync } from "node:fs";
@@ -76,7 +76,7 @@ const sb = createClient(URL, SRV, { auth: { persistSession: false } });
 
 let baru = 0, sudah = 0, gagal = 0;
 for (const [nim, nama] of KELAS) {
-  const email = nim === ADMIN_NIM ? ADMIN_EMAIL : `${nim}@siswa.tongban.id`;
+  const email = nim === ADMIN_NIM ? ADMIN_EMAIL : `${nim}@siswa.bedebest.id`;
   const role = nim === ADMIN_NIM ? "admin" : "member";
   try {
     // cari dulu biar idempotent

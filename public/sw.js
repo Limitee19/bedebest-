@@ -1,4 +1,4 @@
-/* TóngBǎn service worker: installable PWA + Web Push.
+/* BeDeBest service worker: installable PWA + Web Push.
    Event "push" tiba dari server (cron harian 00:00 WIB) walau web tertutup. */
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -13,7 +13,7 @@ self.addEventListener("fetch", () => {
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "TóngBǎn", body: "Ada kabar baru dari kelas!", url: "/" };
+  let data = { title: "BeDeBest", body: "Ada kabar baru dari kelas!", url: "/" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch (e) { /* abaikan payload rusak */ }
@@ -22,7 +22,7 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/logo.svg",
       badge: "/logo.svg",
-      tag: "tongban-harian",
+      tag: "bedebest-harian",
       data: { url: data.url || "/" },
     })
   );

@@ -1,4 +1,4 @@
-# TóngBǎn 同班 — Papan Tugas Offering B(EST) PBM
+# BeDeBest — Ruang Kelas Offering B(EST) PBM
 
 Web pengelolaan tugas sekelas: 33 akun dengan sesi login masing-masing, 6 matkul
 dikelola admin, alur **catatan → tugas resmi** oleh PJ/admin, deadline serinci
@@ -21,7 +21,7 @@ Tanpa `.env` pun aplikasi jalan penuh memakai data lokal (localStorage).
 
 1. Buat project di supabase.com → SQL Editor → jalankan `supabase/schema.sql`
    (tabel + RLS + 6 matkul Offering B(EST) PBM langsung keseed).
-2. Authentication → Users → buat 33 user dengan email `<NIM>@siswa.tongban.id`
+2. Authentication → Users → buat 33 user dengan email `<NIM>@siswa.bedebest.id`
    (admin: `muhammadarielfathoni12@gmail.com`), password = NIM masing-masing.
    Setiap user baru wajib punya baris di `profiles` (`id` = `auth.users.id`,
    `nim` = NIM, `role` = admin hanya untuk NIM 260242649788).

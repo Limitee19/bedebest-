@@ -14,9 +14,9 @@ import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 
 export const metadata: Metadata = {
-  title: "TóngBǎn — Papan Tugas Offering B(EST) PBM",
+  title: "BeDeBest — Ruang Kelas Offering B(EST) PBM",
   description:
-    "Papan kelola tugas sekelas Offering B(EST) PBM: matkul, dosen, kontrak, jadwal, dan rangkuman tugas mingguan.",
+    "Ruang kelas digital Offering B(EST) PBM: matkul, dosen, kontrak, jadwal, tugas, arsip, dan rangkuman mingguan.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/logo.svg" },
 };

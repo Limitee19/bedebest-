@@ -162,7 +162,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             id,
             nama: nama.trim(),
             nim: bersih,
-            email: `${bersih}@siswa.tongban.id`,
+            email: `${bersih}@siswa.bedebest.id`,
             password: bersih,
             role: "member",
           },

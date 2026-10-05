@@ -236,7 +236,7 @@ export function seedUsers(): User[] {
     id: nim === ADMIN_NIM ? "u-admin" : `u-${i + 1}`,
     nama: namaRapi(nama),
     nim,
-    email: nim === ADMIN_NIM ? ADMIN_EMAIL : `${nim}@siswa.tongban.id`,
+    email: nim === ADMIN_NIM ? ADMIN_EMAIL : `${nim}@siswa.bedebest.id`,
     password: nim,
     role: nim === ADMIN_NIM ? ("admin" as const) : ("member" as const),
   }));

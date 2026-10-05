@@ -111,7 +111,7 @@ export async function GET(req: Request) {
     try {
       await kirimPush(
         sub,
-        `TóngBǎn · ${ingat.length ? `${ingat.length} deadline mendekat` : "Jadwal hari ini"}`,
+        `BeDeBest · ${ingat.length ? `${ingat.length} deadline mendekat` : "Jadwal hari ini"}`,
         baris.join("\n")
       );
       terkirim++;

@@ -1,11 +1,11 @@
-# Deploy TóngBǎn — Checklist Klik-per-Klik
+# Deploy BeDeBest — Checklist Klik-per-Klik
 
 ## A. GitHub (5 menit, sekali saja)
 
-1. Buka github.com → New repository → nama `tongban` (Private boleh) → Create.
-2. Di laptop, jalankan dari folder `tongban` (ganti USER):
+1. Buka github.com → New repository → nama `bedebest` (Private boleh) → Create.
+2. Di laptop, jalankan dari folder `bedebest` (ganti USER):
    ```bash
-   git remote add origin https://github.com/USER/tongban.git
+   git remote add origin https://github.com/USER/bedebest.git
    git branch -M main
    git push -u origin main
    ```
@@ -25,14 +25,14 @@
 
 ## C. Vercel (10 menit, sekali saja)
 
-1. vercel.com → Add New → Project → Import repo `tongban`.
+1. vercel.com → Add New → Project → Import repo `bedebest`.
 2. Environment Variables (copy dari `.env.local` milikmu):
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
    `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` (opsional),
    `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
    `CRON_SECRET` = **wajib generate baru yang panjang** (jangan pakai yang di
    `.env.local` contoh).
-3. Deploy → dapat URL `https://tongban-xxx.vercel.app`.
+3. Deploy → dapat URL `https://bedebest-xxx.vercel.app`.
 4. Cron harian 00:00 WIB aktif otomatis dari `vercel.json`. Cek di dashboard:
    Project → Cron Jobs → harus ada `/api/cron/harian` sukses tiap malam.
 

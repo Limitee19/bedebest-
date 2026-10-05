@@ -1,10 +1,10 @@
 {
-  "name": "TóngBǎn — Offering B(EST) PBM",
-  "short_name": "TóngBǎn",
+  "name": "BeDeBest — Offering B(EST) PBM",
+  "short_name": "BeDeBest",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fff6e8",
   "theme_color": "#e8552f",
-  "description": "Papan kelola tugas sekelas Offering B(EST) PBM",
+  "description": "Ruang kelas digital Offering B(EST) PBM",
   "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

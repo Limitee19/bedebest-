@@ -10,7 +10,7 @@ export function pushSiap() {
   const prv = process.env.VAPID_PRIVATE_KEY;
   if (!pub || !prv) return false;
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || "mailto:admin@tongban.local",
+    process.env.VAPID_SUBJECT || "mailto:admin@bedebest.local",
     pub,
     prv
   );

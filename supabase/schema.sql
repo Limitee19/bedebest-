@@ -1,5 +1,5 @@
 -- ============================================================
--- TóngBǎn — skema Supabase untuk Offering B(EST) PBM
+-- BeDeBest — skema Supabase untuk Offering B(EST) PBM
 -- Cara pakai: Supabase Dashboard → SQL Editor → tempel seluruh file → Run
 -- ============================================================
 
@@ -11,7 +11,7 @@ drop table if exists public.tugas;
 drop table if exists public.matkul;
 drop table if exists public.profiles;
 
--- Profil terhubung ke auth.users. Email produksi: NIM@siswa.tongban.id
+-- Profil terhubung ke auth.users. Email produksi: NIM@siswa.bedebest.id
 -- (atau email asli untuk admin). Kata sandi awal = NIM.
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,

@@ -193,7 +193,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
         {children}
         <footer className="mt-8 border-t-2 border-dashed border-(--color-line) pt-3 text-center text-[12px] font-semibold text-(--color-faint)">
-          TóngBǎn 同班 · papan tugas Offering B(EST) PBM · 加油!
+          BeDeBest · ruang kelas Offering B(EST) PBM · 加油!
         </footer>
       </div>
     </div>

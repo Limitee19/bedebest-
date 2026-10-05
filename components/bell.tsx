@@ -75,7 +75,7 @@ export function usePengingat() {
           `Jadwal ${namaHariIni()}: ` +
             jadwal.map(({ m, sesi }) => `${m.nama} ${sesi.jam} @ ${sesi.ruang}`).join(" · ")
         );
-      await tampilkanNotifikasi("TóngBǎn mengingatkan", baris.join("\n"));
+      await tampilkanNotifikasi("BeDeBest mengingatkan", baris.join("\n"));
       try {
         localStorage.setItem(LS_HARI, kunci);
       } catch { /* abaikan */ }
