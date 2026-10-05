@@ -125,12 +125,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <span className="font-display flex h-10 w-10 items-center justify-center rounded-full bg-(--color-apel) text-lg font-bold text-white">
             {user.nama.charAt(0)}
           </span>
-          <div className="min-w-0 flex-1 leading-tight">
+          <Link href="/profil" className="min-w-0 flex-1 leading-tight hover:opacity-75">
             <p className="truncate text-[14px] font-extrabold">{user.nama}</p>
             <p className="text-[11px] font-bold uppercase tracking-widest text-(--color-faint)">
-              {labelPeran}
+              {labelPeran} · Profilku
             </p>
-          </div>
+          </Link>
           <button
             onClick={() => {
               logout();

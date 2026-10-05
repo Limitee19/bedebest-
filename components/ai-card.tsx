@@ -66,10 +66,6 @@ export function AiCard() {
           <WandSparkles size={17} className={loading ? "animate-spin" : ""} />
           {loading ? "Menyusun…" : text ? "Susun ulang" : "Susun rangkuman"}
         </button>
-        <p className="mt-2.5 text-[12px] font-medium text-(--color-faint)">
-          Isi GEMINI_API_KEY di .env untuk memakai Gemini asli. Tanpa itu, rangkuman
-          disusun otomatis dari data deadline.
-        </p>
       </div>
     </section>
   );

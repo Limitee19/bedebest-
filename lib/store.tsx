@@ -27,6 +27,8 @@ interface Store {
   aktivitas: Aktivitas[];
   login: (nama: string, nim: string) => string | null;
   logout: () => void;
+  /** Ganti kata sandi sendiri. null = berhasil. */
+  gantiPassword: (lama: string, baru: string) => string | null;
   addUser: (nama: string, nim: string) => string | null;
   removeUser: (id: string) => void;
   resetPassword: (id: string) => void;
@@ -71,7 +73,7 @@ interface Store {
 }
 
 const Ctx = createContext<Store | null>(null);
-const LS_KEY = "tongban-store-v7";
+const LS_KEY = "tongban-store-v8";
 
 /** Apakah user ini sudah menandai tugas selesai? */
 export function sudahSelesai(t: { selesaiOleh?: string[] }, userId: string | undefined) {
@@ -151,6 +153,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return null;
       },
       logout: () => setUser(null),
+      gantiPassword: (lama, baru) => {
+        if (!user) return "Kamu belum masuk.";
+        if (user.password !== lama) return "Kata sandi lama salah.";
+        if (baru.trim().length < 6) return "Kata sandi baru minimal 6 karakter.";
+        if (baru.trim() === lama) return "Kata sandi baru sama dengan yang lama.";
+        const pw = baru.trim();
+        setUsers((p) => p.map((u) => (u.id === user.id ? { ...u, password: pw } : u)));
+        setUser({ ...user, password: pw });
+        return null;
+      },
       addUser: (nama, nim) => {
         const bersih = nim.trim();
         if (!/^\d{6,}$/.test(bersih)) return "NIM harus berupa angka.";
