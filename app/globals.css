@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Baloo 2", "Plus Jakarta Sans", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* ============ MODE TERANG: kelas pagi yang ceria ============ */
+:root {
+  --color-paper: #fff6e8;
+  --color-cream: #ffefcf;
+  --color-card: #ffffff;
+  --color-line: #eedcae;
+  --color-ink: #3b2e23;
+  --color-soft: #6f5f4e;
+  --color-faint: #a08e76;
+  --color-apel: #e8552f;
+  --color-apel-soft: #ffe2d5;
+  --color-daun: #2f9459;
+  --color-daun-soft: #d9f2e2;
+  --color-anggur: #7c5cbf;
+  --color-lemon: #e9a13b;
+  --color-lemon-soft: #ffefc4;
+  --color-sky: #3f8fd1;
+  --color-sky-soft: #d9ecfc;
+  --color-pink: #e75d8f;
+  --color-pink-soft: #ffdbe8;
+  --color-mint: #2fa08a;
+  --shadow-card: 0 2px 0 rgba(59, 46, 35, 0.08);
+  --dots: rgba(59, 46, 35, 0.07);
+  --input-bg: #ffffff;
+}
+
+/* ============ MODE GELAP: belajar malam yang hangat ============ */
+.dark {
+  --color-paper: #181222;
+  --color-cream: #241b33;
+  --color-card: #251c36;
+  --color-line: #453563;
+  --color-ink: #fff3e0;
+  --color-soft: #cbbca4;
+  --color-faint: #8d7fa8;
+  --color-apel: #ff7a59;
+  --color-apel-soft: #4a2430;
+  --color-daun: #5fce8f;
+  --color-daun-soft: #1e3d33;
+  --color-anggur: #b79cff;
+  --color-lemon: #ffbe4d;
+  --color-lemon-soft: #44331a;
+  --color-sky: #7cc4ff;
+  --color-sky-soft: #233d55;
+  --color-pink: #ff9ebb;
+  --color-pink-soft: #4c2340;
+  --color-mint: #5fd3b3;
+  --shadow-card: 0 2px 0 rgba(0, 0, 0, 0.35);
+  --dots: rgba(255, 243, 224, 0.06);
+  --input-bg: #1c1628;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  /* pola titik-titik buku tulis */
+  background-image: radial-gradient(var(--dots) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* kartu utama: putih membulat, bayangan lembut */
+.paper-card {
+  background: var(--color-card);
+  border: 2px solid var(--color-line);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+/* tombol gemuk */
+.btn-hard {
+  box-shadow: 0 3px 0 rgba(59, 46, 35, 0.9);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+.dark .btn-hard {
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.55);
+}
+.btn-hard:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+.btn-hard:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(59, 46, 35, 0.9);
+}
+
+/* stiker kecil yang sedikit miring */
+.sticker {
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  transform: rotate(-2deg);
+}
+
+/* pita washi di sisi kartu matkul */
+.tape {
+  border-radius: 6px;
+  transform: rotate(-3deg);
+  box-shadow: 0 1px 2px rgba(59, 46, 35, 0.25);
+}
+
+input, select, textarea {
+  color: var(--color-ink);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--color-faint);
+}
+
+.field {
+  background: var(--input-bg);
+  border: 2px solid var(--color-line);
+  border-radius: 14px;
+}
+.field:focus-within {
+  border-color: var(--color-lemon);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+::selection {
+  background: var(--color-lemon-soft);
+}
