@@ -1,11 +1,15 @@
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowRight, PencilLine, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Matkul } from "@/lib/data";
 import { SksCap } from "./bits";
+import { ModalUbahMatkul } from "./matkul-form";
 
-export function MatkulCard({ m, onDelete }: { m: Matkul; onEdit?: () => void; onDelete?: () => void }) {
-  const { tugas, users } = useStore();
+export function MatkulCard({ m, onEdit, onDelete }: { m: Matkul; onEdit?: () => void; onDelete?: () => void }) {
+  const { tugas, users, bisaSimpulkan } = useStore();
+  const [bukaUbah, setBukaUbah] = useState(false);
+  const bolehUbah = bisaSimpulkan(m.id);
   const aktif = tugas.filter((t) => t.matkulId === m.id && t.status === "resmi" && !t.arsip).length;
   const namaPj = (m.pjIds ?? [])
     .map((id) => users.find((u) => u.id === id)?.nama)
@@ -28,6 +32,11 @@ export function MatkulCard({ m, onDelete }: { m: Matkul; onEdit?: () => void; on
           </span>
           <SksCap sks={m.sks} />
           <span className="ml-auto flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            {bolehUbah && (
+              <button onClick={() => (onEdit ? onEdit() : setBukaUbah(true))} title="Ubah info matkul" className="rounded-lg bg-white/70 p-1.5 text-(--color-soft) hover:text-(--color-ink)">
+                <PencilLine size={15} />
+              </button>
+            )}
             {onDelete && (
               <button onClick={onDelete} title="Hapus" className="rounded-lg bg-white/70 p-1.5 text-(--color-soft) hover:text-(--color-apel)">
                 <Trash2 size={15} />
@@ -73,9 +82,7 @@ export function MatkulCard({ m, onDelete }: { m: Matkul; onEdit?: () => void; on
           </Link>
         </div>
       </div>
+      {bukaUbah && <ModalUbahMatkul matkulId={m.id} onTutup={() => setBukaUbah(false)} />}
     </article>
   );
 }
-
-// re-ekspor agar API lama tidak rusak
-export { PencilLine };

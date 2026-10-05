@@ -1,17 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { BookOpenText, Plus, RotateCcw, Trash2, UserRound, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Shell } from "@/components/shell";
 import { SectionTitle } from "@/components/bits";
 import { ADMIN_EMAIL, ADMIN_NIM } from "@/lib/data";
 import { MatkulCard } from "@/components/matkul-card";
+import { ModalUbahMatkul } from "@/components/matkul-form";
 
 const WARNA = ["#3f8fd1", "#2fa08a", "#e8552f", "#e75d8f", "#7c5cbf", "#e9a13b"];
 
+const TABS = [
+  { id: "anggota", label: "Anggota", icon: Users },
+  { id: "pj", label: "PJ Matkul", icon: UserRound },
+  { id: "matkul", label: "Matkul", icon: BookOpenText },
+  { id: "peserta", label: "Peserta", icon: Users },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
 export default function AdminPage() {
-  const { user, users, addUser, removeUser, resetPassword, matkul, addMatkul, removeMatkul, tambahPj, hapusPj, setPeserta } = useStore();
+  const { user, users, addUser, removeUser, resetPassword, matkul, addMatkul, removeMatkul } = useStore();
+  const [tab, setTab] = useState<TabId>("anggota");
+  const [editMk, setEditMk] = useState<string | null>(null);
   const [nama, setNama] = useState("");
   const [nim, setNim] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -35,7 +47,7 @@ export default function AdminPage() {
     return (
       <Shell>
         <p className="paper-card p-6 text-sm">
-          Halaman ini khusus admin / penanggung jawab kelas. Kamu masuk sebagai <b>{user.nama}</b>.
+          Halaman ini khusus admin kelas. Kamu masuk sebagai <b>{user.nama}</b>.
         </p>
       </Shell>
     );
@@ -67,107 +79,139 @@ export default function AdminPage() {
 
   return (
     <Shell>
-      <SectionTitle no="⚙" title="Kelola Kelas" desc={`${users.length} akun · kata sandi = NIM masing-masing · admin ${ADMIN_NIM}`} />
+      <SectionTitle no="⚙" title="Kelola Kelas" desc={`${users.length} akun · ${matkul.length} matkul · admin ${ADMIN_NIM}`} />
 
-      {/* Anggota */}
-      <section className="paper-card p-4 md:p-6">
-        <h3 className="font-display text-[22px] font-bold">Anggota ({users.length})</h3>
-        <form onSubmit={tambahUser} className="mt-3 grid gap-2 md:grid-cols-4">
-          <input value={nama} onChange={(e)=>setNama(e.target.value)} placeholder="Nama lengkap" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
-          <input value={nim} onChange={(e)=>setNim(e.target.value)} inputMode="numeric" placeholder="NIM (jadi kata sandi)" className="field px-4 py-2.5 text-[15px] outline-none" required />
-          <button className="btn-hard flex items-center justify-center gap-1.5 rounded-full bg-(--color-ink) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
-            <Plus size={15} strokeWidth={3} /> Buat akun
+      {/* Navbar tab */}
+      <nav className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-5 py-2.5 text-[14px] font-extrabold transition-all ${
+              tab === t.id
+                ? "border-(--color-ink) bg-(--color-ink) text-[#fff6e8] dark:text-[#181222]"
+                : "border-(--color-line) bg-(--color-card) text-(--color-soft) hover:border-(--color-faint)"
+            }`}
+          >
+            <t.icon size={16} strokeWidth={2.6} />
+            {t.label}
           </button>
-        </form>
-        {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
-        <div className="mt-4 overflow-x-auto rounded-2xl bg-(--color-cream) p-1">
-          <table className="w-full min-w-[620px] text-left text-[14px]">
-            <thead>
-              <tr className="text-[11px] font-extrabold uppercase tracking-widest text-(--color-faint)">
-                <th className="px-3 py-2.5">Nama</th>
-                <th className="px-3 py-2.5">NIM</th>
-                <th className="px-3 py-2.5">Peran</th>
-                <th className="px-3 py-2.5 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...users].sort((a, b) => a.nama.localeCompare(b.nama, "id")).map((u) => (
-                <tr key={u.id} className="border-t-2 border-dashed border-(--color-line) first:border-0">
-                  <td className="px-3 py-2.5 font-extrabold">{u.nama}</td>
-                  <td className="tnum px-3 py-2.5 text-[13px] font-bold text-(--color-soft)">{u.nim}</td>
-                  <td className="px-3 py-2.5">
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest ${u.role === "admin" ? "bg-(--color-ink) text-[#fff6e8] dark:text-[#181222]" : u.role === "pj" ? "bg-(--color-apel) text-white" : "bg-(--color-card) text-(--color-soft)"}`}>
-                      {u.role === "admin" ? "Admin" : u.role === "pj" ? "PJ" : "Anggota"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <span className="inline-flex gap-1.5">
-                      <button title="Reset sandi ke NIM" onClick={()=>{ resetPassword(u.id); alert(`Sandi ${u.nama} direset ke NIM-nya (${u.nim})`); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-lemon-soft)">
-                        <RotateCcw size={15} />
-                      </button>
-                      {u.email !== ADMIN_EMAIL && (
-                        <button title="Hapus" onClick={()=>{ if (confirm(`Hapus ${u.nama}?`)) removeUser(u.id); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-apel-soft) hover:text-(--color-apel)">
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        ))}
+      </nav>
 
-      {/* PJ per matkul */}
-      <section className="paper-card mt-5 p-4 md:p-6">
-        <h3 className="font-display text-[22px] font-bold">PJ per Mata Kuliah</h3>
-        <p className="mt-0.5 text-[14px] text-(--color-soft)">
-          PJ hanya berkuasa di matkulnya: menyimpulkan catatan jadi tugas resmi.
-          6 matkul → idealnya 6 orang berbeda, boleh juga rangkap.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {matkul.map((m) => (
-            <PjAtur key={m.id} matkulId={m.id} />
-          ))}
-        </div>
-      </section>
-
-      {/* Peserta per matkul — untuk UNIV yang tidak diambil semua anak */}
-      <section className="paper-card mt-5 p-4 md:p-6">
-        <h3 className="font-display text-[22px] font-bold">Peserta per Mata Kuliah</h3>
-        <p className="mt-0.5 text-[14px] text-(--color-soft)">
-          Matkul PMDR wajib seluruh kelas — biarkan "Seluruh kelas". Untuk matkul UNIV,
-          centang hanya anak yang mengambilnya. Yang tidak ikut tidak akan melihat
-          matkul, tugas, jadwal, maupun notifikasinya.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {matkul.map((m) => (
-            <PesertaAtur key={m.id} matkulId={m.id} />
-          ))}
-        </div>
-      </section>
-
-      {/* Matkul */}
-      <section className="mt-6">
-        <h3 className="font-display mb-3 text-[22px] font-bold">Mata kuliah ({matkul.length})</h3>
-        <form onSubmit={tambahMatkul} className="paper-card mb-4 grid gap-2 p-4 md:grid-cols-5">
-          <input value={fKode} onChange={(e)=>setFKode(e.target.value)} placeholder="Kode, mis. PMDR236099" className="field px-4 py-2.5 text-[15px] outline-none" required />
-          <input value={fNama} onChange={(e)=>setFNama(e.target.value)} placeholder="Nama matkul" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
-          <input value={fDosen} onChange={(e)=>setFDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field px-4 py-2.5 text-[15px] outline-none" />
-          <span className="flex gap-2">
-            <input value={fSks} onChange={(e)=>setFSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field w-20 px-4 py-2.5 text-[15px] outline-none" />
-            <button className="btn-hard flex flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
-              <Plus size={15} strokeWidth={3} /> Tambah
+      {tab === "anggota" && (
+        <section className="paper-card p-4 md:p-6">
+          <h3 className="font-display text-[22px] font-bold">Anggota ({users.length})</h3>
+          <p className="mt-0.5 text-[14px] text-(--color-soft)">
+            Kata sandi setiap akun = NIM masing-masing. Bisa direset kapan pun.
+          </p>
+          <form onSubmit={tambahUser} className="mt-3 grid gap-2 md:grid-cols-4">
+            <input value={nama} onChange={(e)=>setNama(e.target.value)} placeholder="Nama lengkap" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
+            <input value={nim} onChange={(e)=>setNim(e.target.value)} inputMode="numeric" placeholder="NIM (jadi kata sandi)" className="field px-4 py-2.5 text-[15px] outline-none" required />
+            <button className="btn-hard flex items-center justify-center gap-1.5 rounded-full bg-(--color-ink) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
+              <Plus size={15} strokeWidth={3} /> Buat akun
             </button>
-          </span>
-        </form>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {matkul.map((m) => (
-            <MatkulCard key={m.id} m={m} onDelete={() => { if (confirm(`Hapus ${m.nama}? Tugasnya ikut terhapus.`)) removeMatkul(m.id); }} />
-          ))}
-        </div>
-      </section>
+          </form>
+          {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
+          <div className="mt-4 overflow-x-auto rounded-2xl bg-(--color-cream) p-1">
+            <table className="w-full min-w-[620px] text-left text-[14px]">
+              <thead>
+                <tr className="text-[11px] font-extrabold uppercase tracking-widest text-(--color-faint)">
+                  <th className="px-3 py-2.5">Nama</th>
+                  <th className="px-3 py-2.5">NIM</th>
+                  <th className="px-3 py-2.5">Peran</th>
+                  <th className="px-3 py-2.5 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...users].sort((a, b) => a.nama.localeCompare(b.nama, "id")).map((u) => (
+                  <tr key={u.id} className="border-t-2 border-dashed border-(--color-line) first:border-0">
+                    <td className="px-3 py-2.5 font-extrabold">{u.nama}</td>
+                    <td className="tnum px-3 py-2.5 text-[13px] font-bold text-(--color-soft)">{u.nim}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest ${u.role === "admin" ? "bg-(--color-ink) text-[#fff6e8] dark:text-[#181222]" : u.role === "pj" ? "bg-(--color-apel) text-white" : "bg-(--color-card) text-(--color-soft)"}`}>
+                        {u.role === "admin" ? "Admin" : u.role === "pj" ? "PJ" : "Anggota"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <span className="inline-flex gap-1.5">
+                        <button title="Reset sandi ke NIM" onClick={()=>{ resetPassword(u.id); alert(`Sandi ${u.nama} direset ke NIM-nya (${u.nim})`); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-lemon-soft)">
+                          <RotateCcw size={15} />
+                        </button>
+                        {u.email !== ADMIN_EMAIL && (
+                          <button title="Hapus" onClick={()=>{ if (confirm(`Hapus ${u.nama}?`)) removeUser(u.id); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-apel-soft) hover:text-(--color-apel)">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === "pj" && (
+        <section className="paper-card p-4 md:p-6">
+          <h3 className="font-display text-[22px] font-bold">PJ per Mata Kuliah</h3>
+          <p className="mt-0.5 text-[14px] text-(--color-soft)">
+            PJ hanya berkuasa di matkulnya: menyimpulkan, mengubah, menghapus, dan
+            mengarsipkan tugas + mengubah info matkul. 6 matkul → idealnya 6 orang
+            berbeda, boleh juga rangkap.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {matkul.map((m) => (
+              <PjAtur key={m.id} matkulId={m.id} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "matkul" && (
+        <section>
+          <h3 className="font-display mb-3 text-[22px] font-bold">Mata kuliah ({matkul.length})</h3>
+          <form onSubmit={tambahMatkul} className="paper-card mb-4 grid gap-2 p-4 md:grid-cols-5">
+            <input value={fKode} onChange={(e)=>setFKode(e.target.value)} placeholder="Kode, mis. PMDR236099" className="field px-4 py-2.5 text-[15px] outline-none" required />
+            <input value={fNama} onChange={(e)=>setFNama(e.target.value)} placeholder="Nama matkul" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
+            <input value={fDosen} onChange={(e)=>setFDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field px-4 py-2.5 text-[15px] outline-none" />
+            <span className="flex gap-2">
+              <input value={fSks} onChange={(e)=>setFSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field w-20 px-4 py-2.5 text-[15px] outline-none" />
+              <button className="btn-hard flex flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
+                <Plus size={15} strokeWidth={3} /> Tambah
+              </button>
+            </span>
+          </form>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {matkul.map((m) => (
+              <MatkulCard
+                key={m.id}
+                m={m}
+                onEdit={() => setEditMk(m.id)}
+                onDelete={() => { if (confirm(`Hapus ${m.nama}? Tugasnya ikut terhapus.`)) removeMatkul(m.id); }}
+              />
+            ))}
+          </div>
+          {editMk && <ModalUbahMatkul matkulId={editMk} onTutup={() => setEditMk(null)} />}
+        </section>
+      )}
+
+      {tab === "peserta" && (
+        <section className="paper-card p-4 md:p-6">
+          <h3 className="font-display text-[22px] font-bold">Peserta per Mata Kuliah</h3>
+          <p className="mt-0.5 text-[14px] text-(--color-soft)">
+            Matkul PMDR wajib seluruh kelas — biarkan "Seluruh kelas". Untuk matkul UNIV,
+            centang hanya anak yang mengambilnya. Yang tidak ikut tidak akan melihat
+            matkul, tugas, jadwal, maupun notifikasinya.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {matkul.map((m) => (
+              <PesertaAtur key={m.id} matkulId={m.id} />
+            ))}
+          </div>
+        </section>
+      )}
     </Shell>
   );
 }

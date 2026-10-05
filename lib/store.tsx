@@ -92,6 +92,18 @@ export function sudahSelesai(t: { selesaiOleh?: string[] }, userId: string | und
   return (t.selesaiOleh ?? []).includes(userId);
 }
 
+/** Penegakan hak akses di level store (selain disembunyikan di UI):
+    tulis/finalisasi/ubah/hapus/arsip tugas hanya admin & PJ matkul tsb. */
+export function bolehKelola(
+  user: User | null,
+  matkul: Matkul[],
+  matkulId: string
+) {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  return (matkul.find((x) => x.id === matkulId)?.pjIds ?? []).includes(user.id);
+}
+
 /** Samakan semua deadline ke akhir hari (00:00 tidak dipakai — hanya tanggal). */
 export function akhirHari(input: string) {
   const d = new Date(input);
@@ -209,7 +221,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setMatkul((p) => [...p, { ...m, pjIds: [], anggotaIds: [], id: `mk-${Date.now()}` }]);
         if (user) catat("matkul", `menambahkan matkul “${m.nama}”`, user.nama);
       },
-      updateMatkul: (id, m) => setMatkul((p) => p.map((x) => (x.id === id ? { ...x, ...m } : x))),
+      updateMatkul: (id, m) => {
+        setMatkul((p) => p.map((x) => (x.id === id ? { ...x, ...m } : x)));
+        const target = matkul.find((x) => x.id === id);
+        if (target && user) catat("matkul", `mengubah info ${target.nama}`, user.nama);
+      },
       tambahPj: (matkulId, userId) => {
         setMatkul((p) =>
           p.map((x) =>
@@ -287,7 +303,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         catat("catatan", `mencatat info di ${namaMk}`, user.nama);
       },
       finalizeTugas: (input) => {
-        if (!user) return;
+        const saya = user;
+        if (!saya || !bolehKelola(saya, matkul, input.matkulId)) return;
         const id = `t-${Date.now()}`;
         setTugas((p) => [
           {
@@ -299,8 +316,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             prioritas: input.prioritas,
             pertemuan: input.pertemuan,
             status: "resmi",
-            dibuatOleh: user.nama,
-            disimpulkanOleh: user.nama,
+            dibuatOleh: saya.nama,
+            disimpulkanOleh: saya.nama,
             subtask: [],
           },
           ...p,
@@ -308,7 +325,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setCatatan((p) =>
           p.map((c) => (input.catatanIds.includes(c.id) ? { ...c, tugasId: id } : c))
         );
-        catat("resmi", `menerbitkan tugas resmi “${input.judul}”`, user.nama);
+        catat("resmi", `menerbitkan tugas resmi “${input.judul}”`, saya.nama);
       },
       addUsulan: (input) => {
         if (!user) return;
@@ -332,39 +349,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateTugasStatus: (id, status) =>
         setTugas((p) => p.map((t) => (t.id === id ? { ...t, status } : t))),
       arsipkan: (id, nilai) => {
-        if (!user) return;
         const target = tugas.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
         setTugas((p) => p.map((t) => (t.id === id ? { ...t, arsip: nilai } : t)));
-        if (target)
-          catat(
-            "resmi",
-            nilai
-              ? `mengarsipkan “${target.judul}” ke Bank Arsip`
-              : `mengeluarkan “${target.judul}” dari arsip`,
-            user.nama
-          );
+        catat(
+          "resmi",
+          nilai
+            ? `mengarsipkan “${target.judul}” ke Bank Arsip`
+            : `mengeluarkan “${target.judul}” dari arsip`,
+          saya.nama
+        );
       },
       jadikanResmi: (id) => {
-        if (!user) return;
         const target = tugas.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
         setTugas((p) =>
           p.map((t) =>
             t.id === id
-              ? { ...t, status: "resmi" as const, disimpulkanOleh: user.nama }
+              ? { ...t, status: "resmi" as const, disimpulkanOleh: saya.nama }
               : t
           )
         );
-        if (target) catat("resmi", `menyetujui usulan “${target.judul}” jadi tugas resmi`, user.nama);
+        catat("resmi", `menyetujui usulan “${target.judul}” jadi tugas resmi`, saya.nama);
       },
       hapusTugas: (id) => {
         const target = tugas.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya) return;
+        // usulan boleh dihapus pembuatnya sendiri; sisanya hanya admin/PJ
+        if (target.status !== "usulan" || target.dibuatOleh !== saya.nama) {
+          if (!bolehKelola(saya, matkul, target.matkulId)) return;
+        }
         setTugas((p) => p.filter((t) => t.id !== id));
         setCatatan((p) => p.map((c) => (c.tugasId === id ? { ...c, tugasId: undefined } : c)));
-        if (target && user) catat("usulan", `menghapus “${target.judul}”`, user.nama);
+        catat("usulan", `menghapus “${target.judul}”`, saya.nama);
       },
       updateTugas: (id, patch) => {
-        if (!user) return;
         const target = tugas.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
         setTugas((p) =>
           p.map((t) =>
             t.id === id
@@ -379,7 +404,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               : t
           )
         );
-        if (target) catat("resmi", `mengubah “${target.judul}”`, user.nama);
+        if (target) catat("resmi", `mengubah “${target.judul}”`, saya.nama);
       },
       toggleSelesai: (id) => {
         if (!user) return;

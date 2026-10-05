@@ -8,6 +8,7 @@ import { sudahSelesai, useStore } from "@/lib/store";
 import { matkulTerlihat } from "@/lib/data";
 import { Shell } from "@/components/shell";
 import { SksCap, fmtTanggal, PertemuanCap, PrioritasCap } from "@/components/bits";
+import { ModalUbahMatkul } from "@/components/matkul-form";
 import { ConfirmModal } from "@/components/confirm";
 import type { Prioritas } from "@/lib/data";
 
@@ -21,6 +22,7 @@ export default function MatkulDetail() {
   const [tanyaId, setTanyaId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [hapusId, setHapusId] = useState<string | null>(null);
+  const [ubahMk, setUbahMk] = useState(false);
   const [fJudul, setFJudul] = useState("");
   const [fDesk, setFDesk] = useState("");
   const [fDeadline, setFDeadline] = useState("");
@@ -122,12 +124,22 @@ export default function MatkulDetail() {
           <ScrollText size={18} className="mt-0.5 shrink-0 text-(--color-lemon)" />
           <div>
             <p className="text-[15px] leading-relaxed"><b>Kontrak kuliah — </b><span className="text-(--color-soft)">{m.kontrak}</span></p>
-            <p className="mt-1.5 text-[13px] font-bold">
-              PJ matkul:{" "}
-              {daftarPj.length > 0 ? (
-                <span className="text-(--color-apel)">{daftarPj.join(", ")}</span>
-              ) : (
-                <span className="text-(--color-faint)">belum ditunjuk (sementara admin)</span>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] font-bold">
+              <span>
+                PJ matkul:{" "}
+                {daftarPj.length > 0 ? (
+                  <span className="text-(--color-apel)">{daftarPj.join(", ")}</span>
+                ) : (
+                  <span className="text-(--color-faint)">belum ditunjuk (sementara admin)</span>
+                )}
+              </span>
+              {bolehSimpulkan && (
+                <button
+                  onClick={() => setUbahMk(true)}
+                  className="flex items-center gap-1 rounded-full border-2 border-(--color-line) bg-(--color-card) px-3 py-1 text-[12px] font-extrabold hover:bg-(--color-lemon-soft)"
+                >
+                  <PencilLine size={13} /> Ubah info & kontrak
+                </button>
               )}
             </p>
           </div>
@@ -331,6 +343,13 @@ export default function MatkulDetail() {
         <ModalUbah
           tugasId={editId}
           onTutup={() => setEditId(null)}
+        />
+      )}
+
+      {ubahMk && (
+        <ModalUbahMatkul
+          matkulId={m.id}
+          onTutup={() => setUbahMk(false)}
         />
       )}
     </Shell>
