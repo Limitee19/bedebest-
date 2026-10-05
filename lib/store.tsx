@@ -65,6 +65,17 @@ interface Store {
   jadikanResmi: (id: string) => void;
   /** Hapus tugas/usulan (admin & PJ, atau pembuatnya). */
   hapusTugas: (id: string) => void;
+  /** Ubah isi tugas resmi (admin & PJ): judul, rincian, tanggal, prioritas, pertemuan. */
+  updateTugas: (
+    id: string,
+    patch: {
+      judul?: string;
+      deskripsi?: string;
+      deadline?: string;
+      prioritas?: Prioritas;
+      pertemuan?: number;
+    }
+  ) => void;
   updateTugasStatus: (id: string, status: StatusTugas) => void;
   /** Tandai / batalkan selesai — hanya untuk akun yang sedang login. */
   toggleSelesai: (id: string) => void;
@@ -350,6 +361,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setTugas((p) => p.filter((t) => t.id !== id));
         setCatatan((p) => p.map((c) => (c.tugasId === id ? { ...c, tugasId: undefined } : c)));
         if (target && user) catat("usulan", `menghapus “${target.judul}”`, user.nama);
+      },
+      updateTugas: (id, patch) => {
+        if (!user) return;
+        const target = tugas.find((t) => t.id === id);
+        setTugas((p) =>
+          p.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  ...(patch.judul !== undefined ? { judul: patch.judul } : {}),
+                  ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi } : {}),
+                  ...(patch.deadline !== undefined ? { deadline: akhirHari(patch.deadline) } : {}),
+                  ...(patch.prioritas !== undefined ? { prioritas: patch.prioritas } : {}),
+                  ...(patch.pertemuan !== undefined ? { pertemuan: patch.pertemuan } : {}),
+                }
+              : t
+          )
+        );
+        if (target) catat("resmi", `mengubah “${target.judul}”`, user.nama);
       },
       toggleSelesai: (id) => {
         if (!user) return;

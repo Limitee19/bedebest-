@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Archive, CalendarHeart, MapPin, Megaphone, ScrollText, Stamp, UserRound } from "lucide-react";
+import { ArrowLeft, Archive, CalendarHeart, MapPin, Megaphone, PencilLine, ScrollText, Stamp, Trash2, UserRound } from "lucide-react";
 import { sudahSelesai, useStore } from "@/lib/store";
 import { matkulTerlihat } from "@/lib/data";
 import { Shell } from "@/components/shell";
@@ -14,11 +14,13 @@ import type { Prioritas } from "@/lib/data";
 export default function MatkulDetail() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { matkulById, tugas, catatan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan } =
+  const { matkulById, tugas, catatan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan, hapusTugas, updateTugas } =
     useStore();
 
   const [isi, setIsi] = useState("");
   const [tanyaId, setTanyaId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [hapusId, setHapusId] = useState<string | null>(null);
   const [fJudul, setFJudul] = useState("");
   const [fDesk, setFDesk] = useState("");
   const [fDeadline, setFDeadline] = useState("");
@@ -186,12 +188,26 @@ export default function MatkulDetail() {
                   {jml > 0 && <span> · {jml} dari {users.length} sudah selesai</span>}
                 </p>
                 {bolehSimpulkan && (
-                  <button
-                    onClick={() => arsipkan(t.id, true)}
-                    className="mt-2.5 flex items-center gap-1.5 rounded-full border-2 border-dashed border-(--color-line) px-3 py-1.5 text-[12px] font-extrabold text-(--color-soft) hover:border-(--color-anggur) hover:text-(--color-anggur)"
-                  >
-                    <Archive size={14} /> Arsipkan ke Bank Arsip
-                  </button>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setEditId(t.id)}
+                      className="flex items-center gap-1.5 rounded-full border-2 border-(--color-line) px-3 py-1.5 text-[12px] font-extrabold hover:bg-(--color-lemon-soft)"
+                    >
+                      <PencilLine size={14} /> Ubah
+                    </button>
+                    <button
+                      onClick={() => arsipkan(t.id, true)}
+                      className="flex items-center gap-1.5 rounded-full border-2 border-dashed border-(--color-line) px-3 py-1.5 text-[12px] font-extrabold text-(--color-soft) hover:border-(--color-anggur) hover:text-(--color-anggur)"
+                    >
+                      <Archive size={14} /> Arsipkan
+                    </button>
+                    <button
+                      onClick={() => setHapusId(t.id)}
+                      className="flex items-center gap-1.5 rounded-full border-2 border-(--color-line) px-3 py-1.5 text-[12px] font-extrabold text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
+                    >
+                      <Trash2 size={14} /> Hapus
+                    </button>
+                  </div>
                 )}
               </article>
               );
@@ -291,6 +307,131 @@ export default function MatkulDetail() {
           setTanyaId(null);
         }}
       />
+
+      <ConfirmModal
+        open={hapusId !== null}
+        bahaya
+        judul="Hapus tugas ini?"
+        pesan={(() => {
+          const t = tgs.find((x) => x.id === hapusId);
+          return t
+            ? `"${t.judul}" akan hilang permanen dari semua akun dan tidak masuk arsip. Yakin?`
+            : "";
+        })()}
+        batalLabel="Batal"
+        yaLabel="Ya, hapus"
+        onBatal={() => setHapusId(null)}
+        onYa={() => {
+          if (hapusId) hapusTugas(hapusId);
+          setHapusId(null);
+        }}
+      />
+
+      {editId && (
+        <ModalUbah
+          tugasId={editId}
+          onTutup={() => setEditId(null)}
+        />
+      )}
     </Shell>
+  );
+}
+
+function ModalUbah({ tugasId, onTutup }: { tugasId: string; onTutup: () => void }) {
+  const { tugas, updateTugas } = useStore();
+  const t = tugas.find((x) => x.id === tugasId);
+  const awal = {
+    judul: t?.judul ?? "",
+    deskripsi: t?.deskripsi ?? "",
+    deadline: t?.deadline ?? new Date().toISOString(),
+    prioritas: t?.prioritas ?? ("sedang" as Prioritas),
+    pertemuan: t?.pertemuan,
+  };
+  const [judul, setJudul] = useState(awal.judul);
+  const [deskripsi, setDeskripsi] = useState(awal.deskripsi);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date(awal.deadline);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  });
+  const [prioritas, setPrioritas] = useState<Prioritas>(awal.prioritas);
+  const [pertemuan, setPertemuan] = useState(awal.pertemuan ? String(awal.pertemuan) : "");
+
+  if (!t) return null;
+  const idTugas = t.id;
+
+  function simpan(e: React.FormEvent) {
+    e.preventDefault();
+    if (!judul.trim() || !deadline) return;
+    const n = parseInt(pertemuan, 10);
+    updateTugas(idTugas, {
+      judul: judul.trim(),
+      deskripsi: deskripsi.trim() || "—",
+      deadline,
+      prioritas,
+      pertemuan: Number.isNaN(n) ? undefined : n,
+    });
+    onTutup();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onClick={onTutup}>
+      <form
+        onSubmit={simpan}
+        onClick={(e) => e.stopPropagation()}
+        className="paper-card w-full max-w-md !rounded-3xl p-5 md:p-6"
+      >
+        <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
+          <PencilLine size={20} /> Ubah tugas
+        </h3>
+        <p className="mt-0.5 text-[13px] font-medium text-(--color-soft)">
+          Perubahan berlaku untuk semua peserta matkul ini.
+        </p>
+        <input
+          value={judul}
+          onChange={(e) => setJudul(e.target.value)}
+          placeholder="Judul tugas…"
+          className="field mt-3 w-full px-4 py-2.5 text-[15px] outline-none"
+          required
+        />
+        <textarea
+          value={deskripsi}
+          onChange={(e) => setDeskripsi(e.target.value)}
+          rows={3}
+          placeholder="Rincian…"
+          className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+        />
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <label className="text-[12px] font-extrabold">Tanggal
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="field mt-1 w-full px-3 py-2 text-[14px] outline-none" required />
+          </label>
+          <label className="text-[12px] font-extrabold">Prioritas
+            <select value={prioritas} onChange={(e) => setPrioritas(e.target.value as Prioritas)} className="field mt-1 w-full px-3 py-2 text-[14px] outline-none">
+              <option value="rendah">Santai</option>
+              <option value="sedang">Sedang</option>
+              <option value="mendesak">Mendesak!</option>
+            </select>
+          </label>
+          <label className="text-[12px] font-extrabold">Pertemuan
+            <input type="number" min={1} max={16} value={pertemuan} onChange={(e) => setPertemuan(e.target.value)} placeholder="ke-?" className="field mt-1 w-full px-3 py-2 text-[14px] outline-none" />
+          </label>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={onTutup}
+            className="rounded-full border-2 border-(--color-line) px-4 py-2.5 text-[14px] font-extrabold text-(--color-soft) hover:bg-(--color-cream)"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[14px] font-extrabold text-[#fff6e8] dark:text-[#181222]"
+          >
+            Simpan perubahan
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
