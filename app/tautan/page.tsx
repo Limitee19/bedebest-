@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Link2, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Link2, Plus, Search, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   LABEL_KATEGORI,
@@ -14,11 +14,16 @@ import { SectionTitle } from "@/components/bits";
 import { ConfirmModal } from "@/components/confirm";
 
 const KATEGORI: KategoriTautan[] = ["kumpul", "materi", "data", "lainnya"];
+const BATAS_AWAL = 8;
+const TAMBAH = 12;
 
 export default function TautanPage() {
   const { user, tautan, matkul, addTautan, hapusTautan } = useStore();
   const [filterMk, setFilterMk] = useState("semua");
   const [filterKat, setFilterKat] = useState("semua");
+  const [cari, setCari] = useState("");
+  const [batas, setBatas] = useState(BATAS_AWAL);
+  const [tambahBuka, setTambahBuka] = useState(false);
   const [fJudul, setFJudul] = useState("");
   const [fUrl, setFUrl] = useState("");
   const [fKat, setFKat] = useState<KategoriTautan>("kumpul");
@@ -29,10 +34,23 @@ export default function TautanPage() {
 
   const matkulSaya = matkul.filter((m) => matkulTerlihat(m, user));
   const bolehId = new Set(matkulSaya.map((m) => m.id));
+  const kunci = cari.trim().toLowerCase();
   const daftar = tautan
     .filter((t) => !t.matkulId || bolehId.has(t.matkulId))
     .filter((t) => filterMk === "semua" || (t.matkulId || "kelas") === filterMk)
-    .filter((t) => filterKat === "semua" || t.kategori === filterKat);
+    .filter((t) => filterKat === "semua" || t.kategori === filterKat)
+    .filter((t) =>
+      !kunci
+        ? true
+        : `${t.judul} ${t.deskripsi} ${domainDari(t.url)}`.toLowerCase().includes(kunci)
+    );
+
+  const tampil = daftar.slice(0, batas);
+  const sisa = daftar.length - tampil.length;
+
+  function resetBatas() {
+    setBatas(BATAS_AWAL);
+  }
 
   function kirim(e: React.FormEvent) {
     e.preventDefault();
@@ -43,13 +61,15 @@ export default function TautanPage() {
       kategori: fKat,
       deskripsi: fDesk,
     });
-    if (gagal) setErr(gagal);
-    else {
-      setFJudul("");
-      setFUrl("");
-      setFDesk("");
-      setErr(null);
+    if (gagal) {
+      setErr(gagal);
+      return;
     }
+    setFJudul("");
+    setFUrl("");
+    setFDesk("");
+    setErr(null);
+    setTambahBuka(false);
   }
 
   function bolehHapus(t: (typeof tautan)[number]) {
@@ -61,16 +81,42 @@ export default function TautanPage() {
 
   return (
     <Shell>
-      <SectionTitle
-        no={<Link2 size={22} />}
-        title="Tautan Penting"
-        desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionTitle
+          no={<Link2 size={22} />}
+          title="Tautan Penting"
+          desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
+        />
+        <button
+          onClick={() => {
+            setErr(null);
+            setTambahBuka(true);
+          }}
+          className="btn-hard flex shrink-0 items-center gap-1.5 rounded-full bg-(--color-daun) px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white"
+        >
+          <Plus size={15} strokeWidth={3} /> Tambah
+        </button>
+      </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-2 flex flex-wrap gap-2">
+        <span className="field flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5">
+          <Search size={16} className="shrink-0 text-(--color-faint)" />
+          <input
+            value={cari}
+            onChange={(e) => {
+              setCari(e.target.value);
+              resetBatas();
+            }}
+            placeholder="Cari judul / keterangan…"
+            className="w-full bg-transparent text-[15px] outline-none"
+          />
+        </span>
         <select
           value={filterMk}
-          onChange={(e) => setFilterMk(e.target.value)}
+          onChange={(e) => {
+            setFilterMk(e.target.value);
+            resetBatas();
+          }}
           className="field cursor-pointer px-4 py-2.5 text-[15px] font-bold"
         >
           <option value="semua">Semua ruang</option>
@@ -81,7 +127,10 @@ export default function TautanPage() {
         </select>
         <select
           value={filterKat}
-          onChange={(e) => setFilterKat(e.target.value)}
+          onChange={(e) => {
+            setFilterKat(e.target.value);
+            resetBatas();
+          }}
           className="field cursor-pointer px-4 py-2.5 text-[15px] font-bold"
         >
           <option value="semua">Semua jenis</option>
@@ -90,9 +139,12 @@ export default function TautanPage() {
           ))}
         </select>
       </div>
+      <p className="mb-4 text-[13px] font-bold text-(--color-faint)">
+        {daftar.length} tautan · tampil {tampil.length}
+      </p>
 
       <div className="flex flex-col gap-3">
-        {daftar.map((t) => {
+        {tampil.map((t) => {
           const m = t.matkulId ? matkul.find((x) => x.id === t.matkulId) : null;
           return (
             <article key={t.id} className="paper-card flex items-start gap-3 p-4">
@@ -118,7 +170,7 @@ export default function TautanPage() {
                   <ExternalLink size={15} className="shrink-0" />
                 </a>
                 {t.deskripsi && (
-                  <p className="mt-0.5 text-[14px] text-(--color-soft)">{t.deskripsi}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[14px] text-(--color-soft)">{t.deskripsi}</p>
                 )}
                 <p className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-(--color-faint)">
                   oleh {t.oleh}
@@ -138,57 +190,96 @@ export default function TautanPage() {
         })}
         {!daftar.length && (
           <p className="paper-card p-6 text-center text-[15px] text-(--color-soft)">
-            Belum ada tautan. Tambahkan link kumpul / materi pertama di bawah!
+            Tidak ketemu. Ubah kata kunci / filter, atau tambah tautan baru lewat tombol Tambah.
           </p>
         )}
       </div>
 
-      <form onSubmit={kirim} className="paper-card mt-5 p-4 md:p-5">
-        <p className="font-display text-[20px] font-bold">Tambah tautan</p>
-        <p className="mt-0.5 text-[14px] text-(--color-soft)">
-          Pilih ruang: milik kelas (semua anak) atau matkul tertentu (hanya pesertanya).
-        </p>
-        <div className="mt-2.5 grid gap-2 md:grid-cols-2">
-          <input
-            value={fJudul}
-            onChange={(e) => setFJudul(e.target.value)}
-            placeholder="Judul, mis. Kumpul Esai PLB GDrive"
-            className="field px-4 py-2.5 text-[15px] outline-none"
-            required
-            maxLength={120}
-          />
-          <input
-            value={fUrl}
-            onChange={(e) => setFUrl(e.target.value)}
-            placeholder="https://…"
-            inputMode="url"
-            className="field px-4 py-2.5 text-[15px] outline-none"
-            required
-          />
-          <select value={fKat} onChange={(e) => setFKat(e.target.value as KategoriTautan)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
-            {KATEGORI.map((k) => (
-              <option key={k} value={k}>{LABEL_KATEGORI[k]}</option>
-            ))}
-          </select>
-          <select value={fMk} onChange={(e) => setFMk(e.target.value)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
-            <option value="">Milik kelas (semua anak)</option>
-            {matkulSaya.map((m) => (
-              <option key={m.id} value={m.id}>{m.nama}</option>
-            ))}
-          </select>
-          <input
-            value={fDesk}
-            onChange={(e) => setFDesk(e.target.value)}
-            placeholder="Keterangan singkat (opsional)"
-            className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2"
-            maxLength={500}
-          />
-        </div>
-        {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
-        <button type="submit" className="btn-hard mt-2.5 flex items-center gap-1.5 rounded-full bg-(--color-daun) px-6 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
-          <Plus size={15} strokeWidth={3} /> Simpan tautan
+      {sisa > 0 && (
+        <button
+          onClick={() => setBatas((b) => b + TAMBAH)}
+          className="mt-4 w-full rounded-full border-2 border-(--color-line) bg-(--color-card) px-4 py-2.5 text-[14px] font-extrabold hover:bg-(--color-cream)"
+        >
+          Muat {Math.min(sisa, TAMBAH)} lagi ({sisa} tersisa)
         </button>
-      </form>
+      )}
+      {daftar.length > BATAS_AWAL && tampil.length >= daftar.length && (
+        <button
+          onClick={() => setBatas(BATAS_AWAL)}
+          className="mt-2 w-full rounded-full px-4 py-2 text-[13px] font-extrabold text-(--color-soft) hover:underline"
+        >
+          Ciutkan ke {BATAS_AWAL} teratas
+        </button>
+      )}
+
+      {tambahBuka && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/45 p-4" onClick={() => setTambahBuka(false)}>
+          <form
+            onSubmit={kirim}
+            onClick={(e) => e.stopPropagation()}
+            className="paper-card my-8 w-full max-w-lg !rounded-3xl p-5 md:p-6"
+          >
+            <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
+              <Plus size={20} /> Tambah tautan
+            </h3>
+            <p className="mt-0.5 text-[13px] font-medium text-(--color-soft)">
+              Milik kelas = semua anak. Matkul tertentu = hanya pesertanya.
+            </p>
+            <input
+              value={fJudul}
+              onChange={(e) => setFJudul(e.target.value)}
+              placeholder="Judul, mis. Kumpul Esai PLB GDrive"
+              className="field mt-3 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+              maxLength={120}
+            />
+            <input
+              value={fUrl}
+              onChange={(e) => setFUrl(e.target.value)}
+              placeholder="https://…"
+              inputMode="url"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <select value={fKat} onChange={(e) => setFKat(e.target.value as KategoriTautan)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+                {KATEGORI.map((k) => (
+                  <option key={k} value={k}>{LABEL_KATEGORI[k]}</option>
+                ))}
+              </select>
+              <select value={fMk} onChange={(e) => setFMk(e.target.value)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+                <option value="">Milik kelas (semua anak)</option>
+                {matkulSaya.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nama}</option>
+                ))}
+              </select>
+            </div>
+            <input
+              value={fDesk}
+              onChange={(e) => setFDesk(e.target.value)}
+              placeholder="Keterangan singkat (opsional)"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+              maxLength={500}
+            />
+            {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTambahBuka(false)}
+                className="rounded-full border-2 border-(--color-line) px-4 py-2.5 text-[14px] font-extrabold text-(--color-soft) hover:bg-(--color-cream)"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="btn-hard rounded-full bg-(--color-daun) px-4 py-2.5 text-[14px] font-extrabold text-white"
+              >
+                Simpan tautan
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <ConfirmModal
         open={tanyaId !== null}
