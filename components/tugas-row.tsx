@@ -5,6 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { sudahSelesai, useStore } from "@/lib/store";
 import type { Tugas } from "@/lib/data";
+import { subtaskSelesai } from "@/lib/data";
 import { fmtPendek, labelSisa, PertemuanCap, PrioritasCap, sisaHari } from "./bits";
 import { ConfirmModal } from "./confirm";
 
@@ -98,16 +99,19 @@ export function TugasRow({ t, showMatkul = true }: { t: Tugas; showMatkul?: bool
             <p className="mt-1 text-[15px] leading-relaxed">{t.deskripsi}</p>
             {t.subtask.length > 0 && (
               <ul className="mt-2.5 flex flex-col gap-1.5">
-                {t.subtask.map((sub, i) => (
+                {t.subtask.map((sub, i) => {
+                  const centang = subtaskSelesai(sub, user?.id);
+                  return (
                   <li key={i}>
                     <button onClick={() => toggleSubtask(t.id, i)} className="flex items-center gap-2 text-[14px] font-medium">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full border-[2.5px] text-[12px] font-black text-white ${sub.done ? "border-(--color-daun) bg-(--color-daun)" : "border-(--color-faint)"}`}>
-                        {sub.done && <Check size={12} strokeWidth={4} />}
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full border-[2.5px] text-[12px] font-black text-white ${centang ? "border-(--color-daun) bg-(--color-daun)" : "border-(--color-faint)"}`}>
+                        {centang && <Check size={12} strokeWidth={4} />}
                       </span>
-                      <span className={sub.done ? "line-through opacity-60" : ""}>{sub.label}</span>
+                      <span className={centang ? "line-through opacity-60" : ""}>{sub.label}</span>
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
             <p className="mt-2.5 text-[12px] font-bold uppercase tracking-widest text-(--color-faint)">

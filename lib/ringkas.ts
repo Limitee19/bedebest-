@@ -1,16 +1,32 @@
 import { differenceInCalendarDays } from "date-fns";
-import type { Matkul, Tugas } from "./data";
+import type { Matkul as MatkulPenuh, Tugas as TugasPenuh } from "./data";
 
-export interface RingkasanInput {
-  tugas: Tugas[];
-  matkul: Matkul[];
+export interface RingkasTugas {
+  judul: string;
+  deadline: string;
+  status: string;
+  prioritas: string;
+  matkulId: string;
 }
 
+export interface RingkasMatkul {
+  id: string;
+  nama: string;
+}
+
+export type RingkasanInput =
+  | { tugas: RingkasTugas[]; matkul: RingkasMatkul[] }
+  | { tugas: TugasPenuh[]; matkul: MatkulPenuh[] };
+
+type TugasMin = { judul: string; deadline: string; status: string; matkulId: string };
+type MatkulMin = { id: string; nama: string };
+
 export function ringkasLokal({ tugas, matkul }: RingkasanInput): string {
-  const aktif = tugas.filter((t) => t.status === "resmi");
+  const aktif = (tugas as TugasMin[]).filter((t) => t.status === "resmi");
+  const daftar = matkul as MatkulMin[];
   const now = new Date();
-  const dlm = (t: Tugas) => differenceInCalendarDays(new Date(t.deadline), now);
-  const nama = (id: string) => matkul.find((m) => m.id === id)?.nama ?? "Tanpa matkul";
+  const dlm = (t: TugasMin) => differenceInCalendarDays(new Date(t.deadline), now);
+  const nama = (id: string) => daftar.find((m) => m.id === id)?.nama ?? "Tanpa matkul";
 
   if (!aktif.length)
     return "Papan bersih. Tidak ada tugas resmi yang belum selesai — waktu yang tepat untuk mencicil materi HSK atau merapikan catatan.";

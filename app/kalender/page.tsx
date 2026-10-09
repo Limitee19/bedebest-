@@ -28,7 +28,7 @@ export default function KalenderPage() {
         {pekan.map((h) => {
           const sesi = matkulSaya.flatMap((m) =>
             m.jadwal
-              .filter((j) => j.hari.toLowerCase().includes(h.nama.toLowerCase().slice(0, 4)))
+              .filter((j) => j.hari.toLowerCase().trim() === h.nama.toLowerCase())
               .map((j) => ({ m, j }))
           );
           const dl = tugasSaya.filter(

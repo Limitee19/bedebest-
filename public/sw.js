@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
   let data = { title: "BeDeBest", body: "Ada kabar baru dari kelas!", url: "/" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
-  } catch (e) { /* abaikan payload rusak */ }
+  } catch { /* abaikan payload rusak */ }
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,

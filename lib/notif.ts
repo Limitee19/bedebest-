@@ -56,12 +56,17 @@ export interface SesiHariIni {
   sesi: Jadwal;
 }
 
+/** Normalisasi nama hari: huruf kecil, buang spasi/tanda. */
+export function normalHari(s: string) {
+  return s.toLowerCase().trim();
+}
+
 /** Sesi kuliah hari ini, hanya matkul yang diambil user ini. */
 export function jadwalHariIni(matkul: Matkul[], user?: User | null): SesiHariIni[] {
   const daftar = user ? matkul.filter((m) => matkulTerlihat(m, user)) : matkul;
-  const hari = namaHariIni().toLowerCase().slice(0, 4);
+  const hari = normalHari(namaHariIni());
   return daftar.flatMap((m) =>
-    m.jadwal.filter((sesi) => sesi.hari.toLowerCase().includes(hari)).map((sesi) => ({ m, sesi }))
+    m.jadwal.filter((sesi) => normalHari(sesi.hari) === hari).map((sesi) => ({ m, sesi }))
   );
 }
 

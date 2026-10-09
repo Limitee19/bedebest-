@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 /**
  * Header keamanan dasar untuk semua respons.
- * Catatan: tanpa CSP ketat karena aplikasi memakai inline script tema;
+ * Tanpa CSP ketat karena aplikasi memakai inline script tema;
  * proteksi XSS utama tetap: React auto-escaping + validasi input API.
+ * Catatan: pertimbangkan CSP nonce untuk script tema bila ingin lebih ketat.
  */
 const HEADERS = [
   { key: "X-Frame-Options", value: "DENY" }, // anti clickjacking
@@ -17,6 +18,8 @@ const HEADERS = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
 ];
 
 const nextConfig: NextConfig = {

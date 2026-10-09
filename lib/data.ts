@@ -47,8 +47,11 @@ export interface Tugas {
   prioritas: Prioritas;
   status: StatusTugas;
   dibuatOleh: string;
+  /** ID user pembuat — kepemilikan dicek pakai ini, bukan nama. */
+  dibuatOlehId?: string;
   disimpulkanOleh?: string;
-  subtask: { label: string; done: boolean }[];
+  /** Progres subtask bersifat PER AKUN: doneOleh = id user yang mencentang. */
+  subtask: { label: string; done?: boolean; doneOleh?: string[] }[];
   /** ID user yang sudah menandai selesai — progres bersifat PER AKUN, bukan global. */
   selesaiOleh?: string[];
   /** Pertemuan ke berapa (1, 2, 3, …). Opsional, untuk pengelompokan arsip. */
@@ -63,6 +66,8 @@ export interface Catatan {
   tugasId?: string;
   isi: string;
   oleh: string;
+  /** ID user pembuat — kepemilikan dicek pakai ini, bukan nama. */
+  olehId?: string;
   createdAt: string;
 }
 
@@ -255,6 +260,16 @@ export function seedCatatan(): Catatan[] {
 export function seedAktivitas(): Aktivitas[] {
   // Sengaja kosong: riwayat terisi dari aktivitas kelas nyata.
   return [];
+}
+
+/** Apakah subtask ini dicentang oleh user ini? (progres per-akun) */
+export function subtaskSelesai(
+  s: { done?: boolean; doneOleh?: string[] },
+  userId: string | undefined
+) {
+  if (!userId) return false;
+  if (s.doneOleh) return s.doneOleh.includes(userId);
+  return !!s.done;
 }
 
 /** Matkul ini terlihat oleh user ini? Admin & PJ selalu bisa melihat. */

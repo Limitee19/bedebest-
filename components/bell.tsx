@@ -87,19 +87,19 @@ export function usePengingat() {
 }
 
 export function Bell() {
-  const { user } = useStore();
-  const { tugas, matkul } = useStore();
+  const { user, tugas, matkul } = useStore();
   const [buka, setBuka] = useState(false);
-  const [izin, setIzin] = useState<string>("default");
-  const [pushAktif, setPushAktif] = useState(false);
-  const [pushPesan, setPushPesan] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof Notification !== "undefined") setIzin(Notification.permission);
+  const [izin, setIzin] = useState<string>(() =>
+    typeof Notification === "undefined" ? "default" : Notification.permission
+  );
+  const [pushAktif, setPushAktif] = useState(() => {
     try {
-      setPushAktif(localStorage.getItem("tongban-push") === "aktif");
-    } catch { /* abaikan */ }
-  }, []);
+      return localStorage.getItem("tongban-push") === "aktif";
+    } catch {
+      return false;
+    }
+  });
+  const [pushPesan, setPushPesan] = useState<string | null>(null);
 
   const ingat = pengingatDeadline(tugas, matkul, user);
   const jadwal = jadwalHariIni(matkul, user);

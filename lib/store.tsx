@@ -102,8 +102,15 @@ export function bolehKelola(
   return (matkul.find((x) => x.id === matkulId)?.pjIds ?? []).includes(user.id);
 }
 
-/** Samakan semua deadline ke akhir hari (00:00 tidak dipakai — hanya tanggal). */
+/** Samakan semua deadline ke akhir hari (00:00 tidak dipakai — hanya tanggal).
+ * Pakai komponen tanggal lokal agar tidak geser hari saat konversi UTC:
+ * input "YYYY-MM-DD" (atau ISO) → "YYYY-MM-DDT23:59:00" lokal → ISO. */
 export function akhirHari(input: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(input.trim());
+  if (m) {
+    const lokal = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 0, 0);
+    if (!Number.isNaN(lokal.getTime())) return lokal.toISOString();
+  }
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return new Date().toISOString();
   d.setHours(23, 59, 0, 0);
@@ -131,16 +138,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Hidrasi simpanan lokal sekali saat mount (pola standar, bukan cascade).
     const saved = load<Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "aktivitas"> & { user: User | null }>(
       LS_KEY,
       () => ({ user: null, users: seedUsers(), matkul: seedMatkul, tugas: seedTugas(), catatan: seedCatatan(), aktivitas: seedAktivitas() })
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(saved.user);
     setUsers(saved.users.length ? saved.users : seedUsers());
     setMatkul(saved.matkul.length ? saved.matkul : seedMatkul);
     // Migrasi: usulan model lama (tugas berstatus usulan) diubah jadi catatan info,
     // agar alur baru konsisten: usulan = info ringan, resmi = via simpulan RPS.
     const tugasLama = saved.tugas ?? [];
+    const daftarUser = saved.users.length ? saved.users : seedUsers();
+    const idDariNama = new Map(daftarUser.map((u) => [u.nama, u.id]));
     const migrasi: Catatan[] = tugasLama
       .filter((t) => t.status === "usulan")
       .map((t) => ({
@@ -148,10 +159,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         matkulId: t.matkulId,
         isi: t.judul,
         oleh: t.dibuatOleh || "Anggota",
+        olehId: t.dibuatOlehId ?? idDariNama.get(t.dibuatOleh),
         createdAt: new Date().toISOString(),
       }));
-    const tugasBersih = tugasLama.filter((t) => t.status !== "usulan");
-    const catatanLama = saved.catatan ?? [];
+    const tugasBersih = tugasLama
+      .filter((t) => t.status !== "usulan")
+      .map((t) => ({
+        ...t,
+        // backfill kepemilikan untuk data lama (cocokkan nama → id)
+        dibuatOlehId: t.dibuatOlehId ?? idDariNama.get(t.dibuatOleh),
+        // normalisasi subtask lama {label, done} agar punya doneOleh bila memungkinkan
+        subtask: (t.subtask ?? []).map((s) => ({ ...s })),
+      }));
+    const catatanLama = (saved.catatan ?? []).map((c) => ({
+      ...c,
+      olehId: c.olehId ?? idDariNama.get(c.oleh),
+    }));
     const catatanBaru = [
       ...catatanLama,
       ...migrasi.filter((m) => !catatanLama.some((c) => c.id === m.id)),
@@ -305,13 +328,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       addCatatan: (matkulId, isi) => {
         if (!user) return;
+        const teks = isi.trim().slice(0, 2000);
+        if (!teks) return;
         const namaMk = matkul.find((x) => x.id === matkulId)?.nama ?? "matkul";
         setCatatan((p) => [
           {
             id: `c-${Date.now()}`,
             matkulId,
-            isi,
+            isi: teks,
             oleh: user.nama,
+            olehId: user.id,
             createdAt: new Date().toISOString(),
           },
           ...p,
@@ -321,18 +347,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       finalizeTugas: (input) => {
         const saya = user;
         if (!saya || !bolehKelola(saya, matkul, input.matkulId)) return;
+        const judul = input.judul.trim().slice(0, 200);
+        const deskripsi = input.deskripsi.trim().slice(0, 5000) || "—";
+        if (!judul || !input.deadline) return;
         const id = `t-${Date.now()}`;
         setTugas((p) => [
           {
             id,
             matkulId: input.matkulId,
-            judul: input.judul,
-            deskripsi: input.deskripsi,
+            judul,
+            deskripsi,
             deadline: akhirHari(input.deadline),
             prioritas: input.prioritas,
             pertemuan: input.pertemuan,
             status: "resmi",
             dibuatOleh: saya.nama,
+            dibuatOlehId: saya.id,
             disimpulkanOleh: saya.nama,
             subtask: [],
           },
@@ -345,7 +375,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       addUsulan: (matkulId, isi) => {
         if (!user) return;
-        const teks = isi.trim();
+        const teks = isi.trim().slice(0, 2000);
         if (!teks) return;
         const namaMk = matkul.find((x) => x.id === matkulId)?.nama ?? "matkul";
         setCatatan((p) => [
@@ -354,6 +384,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             matkulId,
             isi: teks,
             oleh: user.nama,
+            olehId: user.id,
             createdAt: new Date().toISOString(),
           },
           ...p,
@@ -364,8 +395,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const target = catatan.find((c) => c.id === id);
         const saya = user;
         if (!target || !saya) return;
-        // pembuat sendiri boleh; sisanya hanya admin/PJ matkul tsb
-        if (target.oleh !== saya.nama && !bolehKelola(saya, matkul, target.matkulId)) return;
+        // pembuat sendiri (cek ID, bukan nama) boleh; sisanya hanya admin/PJ matkul tsb
+        const milikku = target.olehId ? target.olehId === saya.id : target.oleh === saya.nama;
+        if (!milikku && !bolehKelola(saya, matkul, target.matkulId)) return;
         setCatatan((p) => p.filter((c) => c.id !== id));
       },
       updateTugasStatus: (id, status) =>
@@ -387,8 +419,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const target = tugas.find((t) => t.id === id);
         const saya = user;
         if (!target || !saya) return;
-        // usulan boleh dihapus pembuatnya sendiri; sisanya hanya admin/PJ
-        if (target.status !== "usulan" || target.dibuatOleh !== saya.nama) {
+        // usulan boleh dihapus pembuatnya sendiri (cek ID, bukan nama); sisanya hanya admin/PJ
+        const milikku = target.dibuatOlehId
+          ? target.dibuatOlehId === saya.id
+          : target.dibuatOleh === saya.nama;
+        if (target.status !== "usulan" || !milikku) {
           if (!bolehKelola(saya, matkul, target.matkulId)) return;
         }
         setTugas((p) => p.filter((t) => t.id !== id));
@@ -404,8 +439,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             t.id === id
               ? {
                   ...t,
-                  ...(patch.judul !== undefined ? { judul: patch.judul } : {}),
-                  ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi } : {}),
+                  ...(patch.judul !== undefined ? { judul: patch.judul.trim().slice(0, 200) } : {}),
+                  ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi.trim().slice(0, 5000) || "—" } : {}),
                   ...(patch.deadline !== undefined ? { deadline: akhirHari(patch.deadline) } : {}),
                   ...(patch.prioritas !== undefined ? { prioritas: patch.prioritas } : {}),
                   ...(patch.pertemuan !== undefined ? { pertemuan: patch.pertemuan } : {}),
@@ -433,17 +468,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         if (akanSelesai && target) catat("selesai", `menyelesaikan “${target.judul}”`, user.nama);
       },
-      toggleSubtask: (tugasId, idx) =>
+      toggleSubtask: (tugasId, idx) => {
+        if (!user) return;
+        const saya = user.id;
         setTugas((p) =>
           p.map((t) =>
             t.id === tugasId
               ? {
                   ...t,
-                  subtask: t.subtask.map((s, i) => (i === idx ? { ...s, done: !s.done } : s)),
+                  subtask: t.subtask.map((s, i) => {
+                    if (i !== idx) return s;
+                    const daftar = s.doneOleh ?? [];
+                    const sudah = daftar.includes(saya);
+                    return {
+                      ...s,
+                      doneOleh: sudah ? daftar.filter((x) => x !== saya) : [...daftar, saya],
+                    };
+                  }),
                 }
               : t
           )
-        ),
+        );
+      },
       matkulById: (id) => matkul.find((m) => m.id === id),
     }),
     [user, users, matkul, tugas, catatan, aktivitas]

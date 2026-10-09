@@ -58,11 +58,12 @@ export async function GET(req: Request) {
 
   const now = new Date();
   const namaMatkul = new Map(matkul.map((m) => [m.id as string, m.nama as string]));
-  const kunci = format(now, "EEEE", { locale: localeId }).toLowerCase().slice(0, 4);
-  // cocokkan semua sesi (satu matkul bisa Senin + Sabtu)
+  const kunci = format(now, "EEEE", { locale: localeId }).toLowerCase().trim();
+  // cocokkan semua sesi (satu matkul bisa Senin + Sabtu). Samakan persis nama
+  // hari (lowercase trim), bukan includes/slice, agar "Senin" tak cocok "Seni".
   const jadwal = matkul.flatMap((m) =>
     ((m.jadwal as { hari: string; jam: string; ruang: string }[] | null) ?? [])
-      .filter((s) => String(s.hari).toLowerCase().includes(kunci))
+      .filter((s) => String(s.hari).toLowerCase().trim() === kunci)
       .map((s) => ({ matkulId: String(m.id), nama: String(m.nama), jam: String(s.jam), ruang: String(s.ruang) }))
   );
 

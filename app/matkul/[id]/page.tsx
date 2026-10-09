@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Archive, CalendarHeart, MapPin, Megaphone, PencilLine, ScrollText, Stamp, Trash2, UserRound } from "lucide-react";
 import { sudahSelesai, useStore } from "@/lib/store";
-import { matkulTerlihat } from "@/lib/data";
+import { matkulTerlihat, subtaskSelesai } from "@/lib/data";
 import { Shell } from "@/components/shell";
 import { SksCap, fmtTanggal, PertemuanCap, PrioritasCap } from "@/components/bits";
 import { ModalUbahMatkul } from "@/components/matkul-form";
@@ -15,7 +15,7 @@ import type { Prioritas } from "@/lib/data";
 export default function MatkulDetail() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { matkulById, tugas, catatan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan, hapusTugas, updateTugas } =
+  const { matkulById, tugas, catatan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan, hapusTugas } =
     useStore();
 
   const [isi, setIsi] = useState("");
@@ -183,16 +183,19 @@ export default function MatkulDetail() {
                 <p className="mt-1 text-[15px] leading-relaxed text-(--color-soft)">{t.deskripsi}</p>
                 {t.subtask.length > 0 && (
                   <ul className="mt-2.5 flex flex-col gap-1.5">
-                    {t.subtask.map((s, i) => (
+                    {t.subtask.map((s, i) => {
+                      const centang = subtaskSelesai(s, user?.id);
+                      return (
                       <li key={i}>
                         <button onClick={() => toggleSubtask(t.id, i)} className="flex items-center gap-2 text-[14px] font-medium">
-                          <span className={`flex h-5 w-5 items-center justify-center rounded-full border-[2.5px] text-[12px] font-black text-white ${s.done ? "border-(--color-daun) bg-(--color-daun)" : "border-(--color-faint)"}`}>
-                            {s.done && "✓"}
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full border-[2.5px] text-[12px] font-black text-white ${centang ? "border-(--color-daun) bg-(--color-daun)" : "border-(--color-faint)"}`}>
+                            {centang && "✓"}
                           </span>
-                          <span className={s.done ? "line-through opacity-60" : ""}>{s.label}</span>
+                          <span className={centang ? "line-through opacity-60" : ""}>{s.label}</span>
                         </button>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
                 <p className="mt-2.5 text-[12px] font-bold uppercase tracking-widest text-(--color-faint)">

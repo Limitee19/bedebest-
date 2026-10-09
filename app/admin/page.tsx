@@ -201,7 +201,7 @@ export default function AdminPage() {
         <section className="paper-card p-4 md:p-6">
           <h3 className="font-display text-[22px] font-bold">Peserta per Mata Kuliah</h3>
           <p className="mt-0.5 text-[14px] text-(--color-soft)">
-            Matkul PMDR wajib seluruh kelas — biarkan "Seluruh kelas". Untuk matkul UNIV,
+            Matkul PMDR wajib seluruh kelas — biarkan &quot;Seluruh kelas&quot;. Untuk matkul UNIV,
             centang hanya anak yang mengambilnya. Yang tidak ikut tidak akan melihat
             matkul, tugas, jadwal, maupun notifikasinya.
           </p>

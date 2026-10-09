@@ -26,9 +26,17 @@ export interface SubPush {
 export function validasiSub(body: unknown): body is SubPush {
   if (typeof body !== "object" || body === null) return false;
   const s = body as Record<string, unknown>;
-  if (typeof s.endpoint !== "string" || !s.endpoint.startsWith("https://")) return false;
+  if (typeof s.endpoint !== "string") return false;
+  if (!s.endpoint.startsWith("https://")) return false;
+  if (s.endpoint.length > 2000) return false;
   const k = s.keys as Record<string, unknown> | undefined;
-  return !!k && typeof k.p256dh === "string" && typeof k.auth === "string";
+  if (!k || typeof k.p256dh !== "string" || typeof k.auth !== "string") return false;
+  if (!k.p256dh.length || !k.auth.length) return false;
+  if (k.p256dh.length > 500 || k.auth.length > 500) return false;
+  // kunci push standar base64url — tolak karakter aneh (cegah sampah DB)
+  if (!/^[A-Za-z0-9\-_+=/]+$/.test(k.p256dh)) return false;
+  if (!/^[A-Za-z0-9\-_+=/]+$/.test(k.auth)) return false;
+  return true;
 }
 
 export async function kirimPush(sub: SubPush, judul: string, isi: string) {

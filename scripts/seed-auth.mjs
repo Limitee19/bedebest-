@@ -12,11 +12,25 @@ import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 // muat .env.local minimalis (tanpa dependensi dotenv)
+function parseEnvLine(baris) {
+  const t = baris.trim();
+  if (!t || t.startsWith("#")) return null;
+  const i = t.indexOf("=");
+  if (i < 1) return null;
+  const k = t.slice(0, i).trim();
+  let v = t.slice(i + 1).trim();
+  // strip quote tunggal/ganda + spasi sisa
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  }
+  if (!/^[A-Z_][A-Z0-9_]*$/.test(k)) return null;
+  return [k, v.trim()];
+}
 try {
   const raw = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
   for (const baris of raw.split("\n")) {
-    const m = baris.match(/^([A-Z_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
+    const p = parseEnvLine(baris);
+    if (p && !process.env[p[0]]) process.env[p[0]] = p[1];
   }
 } catch {
   console.error("❌ .env.local tidak ditemukan. Salin dari .env.example dulu.");
@@ -74,14 +88,24 @@ const rapi = (s) =>
 
 const sb = createClient(URL, SRV, { auth: { persistSession: false } });
 
+// ambil daftar user SEKALI (bukan 33x di loop — hemat rate limit)
+const { data: daftarAwal, error: listErr } = await sb.auth.admin.listUsers({ perPage: 1000 });
+if (listErr) {
+  console.error(`❌ Gagal membaca daftar user: ${listErr.message}`);
+  process.exit(1);
+}
+const petaUser = new Map(
+  (daftarAwal?.users ?? [])
+    .filter((u) => u.email)
+    .map((u) => [u.email.toLowerCase(), u])
+);
+
 let baru = 0, sudah = 0, gagal = 0;
 for (const [nim, nama] of KELAS) {
   const email = nim === ADMIN_NIM ? ADMIN_EMAIL : `${nim}@siswa.bedebest.id`;
   const role = nim === ADMIN_NIM ? "admin" : "member";
   try {
-    // cari dulu biar idempotent
-    const { data: daftar } = await sb.auth.admin.listUsers({ perPage: 1000 });
-    const ada = (daftar?.users ?? []).find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    const ada = petaUser.get(email.toLowerCase());
     let uid;
     if (ada) {
       uid = ada.id;

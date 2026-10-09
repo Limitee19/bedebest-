@@ -141,7 +141,7 @@ function KartuUsulan({ c }: { c: Catatan }) {
   const { user, matkulById, bisaSimpulkan, hapusCatatan } = useStore();
   const [tanya, setTanya] = useState(false);
   const m = matkulById(c.matkulId);
-  const milikku = user && c.oleh === user.nama;
+  const milikku = user && (c.olehId ? c.olehId === user.id : c.oleh === user.nama);
   const bolehHapus =
     !!milikku || user?.role === "admin" || (user ? bisaSimpulkan(c.matkulId) : false);
 
