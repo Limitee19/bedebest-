@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cermin.dart';
 import 'jadwal.dart';
 import 'supa.dart';
 
@@ -45,25 +46,43 @@ Future<void> simpanWidget(String judul, String baris) async {
   } catch (_) {}
 }
 
-/// Dipanggil workmanager tiap 30 menit + saat app dibuka.
-/// Cek jadwal hari ini (30 mnt lagi mulai = ingatkan) + deadline H-0..H-3.
+/// Dipanggil alarm tiap 30 menit + tiap snapshot web masuk.
+/// Prioritas: snapshot Cermin dari WebView (sama persis, tanpa login ganda).
+/// Fallback: query Supabase langsung (untuk alarm background tanpa web).
 Future<void> cekHarian() async {
   final prefs = await SharedPreferences.getInstance();
   try {
-    if (!supaReady) await initSupa();
-    if (Supabase.instance.client.auth.currentUser == null) return;
-    final uid = Supabase.instance.client.auth.currentUser!.id;
-    final mk = await sb.from('matkul').select('id,nama,jadwal,anggota_ids,pj_ids');
-    final tg = await sb
-        .from('tugas')
-        .select('judul,matkul_id,deadline_at,status,selesai_oleh')
-        .eq('status', 'resmi')
-        .eq('arsip', false);
-    final listMk = (mk as List).cast<Map<String, dynamic>>();
-    final listTg = (tg as List).cast<Map<String, dynamic>>();
-
-    final peran = await sb.from('profiles').select('id,role').eq('id', uid).maybeSingle();
-    final role = (peran?['role'] ?? '').toString();
+    List<Map<String, dynamic>> listMk = [];
+    List<Map<String, dynamic>> listTg = [];
+    String uid = '';
+    String role = 'member';
+    try {
+      final cermin = await Cermin.baca();
+      if (cermin != null) {
+        uid = '${(cermin['user'] as Map?)?['id'] ?? ''}';
+        role = '${(cermin['user'] as Map?)?['role'] ?? 'member'}';
+        final mk = cermin['matkul'];
+        final tg = cermin['tugas'];
+        if (mk is List) listMk = mk.cast<Map<String, dynamic>>();
+        if (tg is List) listTg = tg.cast<Map<String, dynamic>>();
+      }
+    } catch (_) {}
+    if (uid.isEmpty || listMk.isEmpty) {
+      if (!supaReady) await initSupa();
+      final sesi = Supabase.instance.client.auth.currentUser;
+      if (sesi == null) return;
+      uid = sesi.id;
+      final mk = await sb.from('matkul').select('id,nama,jadwal,anggota_ids,pj_ids');
+      final tg = await sb
+          .from('tugas')
+          .select('judul,matkul_id,deadline_at,status,selesai_oleh')
+          .eq('status', 'resmi')
+          .eq('arsip', false);
+      listMk = (mk as List).cast<Map<String, dynamic>>();
+      listTg = (tg as List).cast<Map<String, dynamic>>();
+      final peran = await sb.from('profiles').select('id,role').eq('id', uid).maybeSingle();
+      role = (peran?['role'] ?? '').toString();
+    }
     bool terlihat(Map<String, dynamic> m) {
       if (role == 'admin') return true;
       final pj = (m['pj_ids'] as List? ?? []).map((e) => '$e');

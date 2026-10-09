@@ -12,6 +12,7 @@ import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/jetbrains-mono/700.css";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
+import { BridgeSync } from "@/components/bridge-sync";
 
 export const metadata: Metadata = {
   title: "BeDeBest — Ruang Kelas Offering B(EST) PBM",
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full">
-        <StoreProvider>{children}</StoreProvider>
+        <StoreProvider>
+          <BridgeSync />
+          {children}
+        </StoreProvider>
       </body>
     </html>
   );
