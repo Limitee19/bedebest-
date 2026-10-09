@@ -30,12 +30,12 @@ export default function Dashboard() {
 
   return (
     <Shell>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="sticker inline-block bg-(--color-sky-soft) px-3 py-1 text-[12px] font-extrabold uppercase tracking-widest text-(--color-sky)">
+      <header className="flex min-w-0 flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <span className="sticker inline-block max-w-full truncate bg-(--color-sky-soft) px-3 py-1 text-[11px] font-extrabold uppercase tracking-widest text-(--color-sky) sm:text-[12px]">
             {hariIni}
           </span>
-          <h1 className="font-display mt-2 text-[34px] font-bold leading-tight md:text-[40px]">
+          <h1 className="font-display mt-2 text-[28px] font-bold leading-tight sm:text-[34px] md:text-[40px]">
             {sapaan}, {user?.nama.split(" ")[0]}!
           </h1>
           <p className="text-[15px] font-medium text-(--color-soft)">
@@ -52,16 +52,16 @@ export default function Dashboard() {
       </header>
 
       {/* Strip angka */}
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
         {[
           { n: String(resmi.length), l: "tugas resmi aktif", bg: "bg-(--color-sky-soft)", tc: "text-(--color-sky)" },
           { n: String(mendesak.length), l: "deadline ≤ 3 hari", bg: "bg-(--color-apel-soft)", tc: "text-(--color-apel)" },
           { n: String(usulan.length), l: "usulan menunggu PJ", bg: "bg-(--color-lemon-soft)", tc: "text-(--color-lemon)" },
           { n: String(selesai), l: "tugas selesai olehmu", bg: "bg-(--color-daun-soft)", tc: "text-(--color-daun)" },
         ].map((s) => (
-          <div key={s.l} className="paper-card p-4">
-            <p className={`font-display tnum text-[38px] font-bold leading-none ${s.tc}`}>{s.n}</p>
-            <p className="mt-1.5 text-[13px] font-bold leading-snug text-(--color-soft)">{s.l}</p>
+          <div key={s.l} className="paper-card min-w-0 p-3.5 sm:p-4">
+            <p className={`font-display tnum text-[32px] font-bold leading-none sm:text-[38px] ${s.tc}`}>{s.n}</p>
+            <p className="mt-1.5 min-h-[32px] text-[12px] font-bold leading-snug text-(--color-soft) sm:text-[13px]">{s.l}</p>
             <div className={`mt-2 h-2 overflow-hidden rounded-full ${s.bg}`}>
               <div className={`h-full w-2/3 rounded-full ${s.tc.replace("text-", "bg-")}`} />
             </div>

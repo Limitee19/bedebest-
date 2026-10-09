@@ -105,7 +105,7 @@ export default function MatkulDetail() {
             <SksCap sks={m.sks} />
             <span className="text-[13px] font-bold text-(--color-soft)">Semester {m.semester} · {m.kelompok}</span>
           </div>
-          <h1 className="font-display mt-2 text-[32px] font-bold leading-tight md:text-[38px]">{m.nama}</h1>
+          <h1 className="font-display mt-2 text-[26px] font-bold leading-tight sm:text-[32px] md:text-[38px]">{m.nama}</h1>
           <div className="mt-3 grid gap-2 text-[15px] font-medium md:grid-cols-3">
             <p className="flex items-center gap-1.5"><UserRound size={16} className="shrink-0" /> {m.dosen.join(" · ")}</p>
             <div className="flex flex-col gap-1">
@@ -267,19 +267,19 @@ export default function MatkulDetail() {
               </h3>
               <input value={fJudul} onChange={(e)=>setFJudul(e.target.value)} placeholder="Judul final tugas…" className="field mt-3 w-full px-4 py-2.5 text-[15px] outline-none" required />
               <textarea value={fDesk} onChange={(e)=>setFDesk(e.target.value)} placeholder="Rincian sedetail mungkin: apa, berapa, format, cara kumpul…" rows={3} className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none" />
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <label className="text-[13px] font-extrabold">Tanggal kumpul
-                  <input type="date" value={fDeadline} onChange={(e)=>setFDeadline(e.target.value)} className="field mt-1 w-full px-4 py-2.5 text-[15px] outline-none" required />
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className="min-w-0 text-[13px] font-extrabold">Tanggal kumpul
+                  <input type="date" value={fDeadline} onChange={(e)=>setFDeadline(e.target.value)} className="field mt-1 w-full min-w-0 px-4 py-2.5 text-[15px] outline-none" required />
                 </label>
-                <label className="text-[13px] font-extrabold">Prioritas
-                  <select value={fPrioritas} onChange={(e)=>setFPrioritas(e.target.value as Prioritas)} className="field mt-1 w-full px-4 py-2.5 text-[15px] outline-none">
+                <label className="min-w-0 text-[13px] font-extrabold">Prioritas
+                  <select value={fPrioritas} onChange={(e)=>setFPrioritas(e.target.value as Prioritas)} className="field mt-1 w-full min-w-0 px-4 py-2.5 text-[15px] outline-none">
                     <option value="rendah">Santai</option>
                     <option value="sedang">Sedang</option>
                     <option value="mendesak">Mendesak!</option>
                   </select>
                 </label>
-                <label className="text-[13px] font-extrabold">Pertemuan
-                  <input type="number" min={1} max={16} value={fPertemuan} onChange={(e)=>setFPertemuan(e.target.value)} placeholder="ke-?" title="Pertemuan ke berapa (opsional, untuk arsip)" className="field mt-1 w-full px-4 py-2.5 text-[15px] outline-none" />
+                <label className="min-w-0 text-[13px] font-extrabold">Pertemuan
+                  <input type="number" min={1} max={16} value={fPertemuan} onChange={(e)=>setFPertemuan(e.target.value)} placeholder="ke-?" title="Pertemuan ke berapa (opsional, untuk arsip)" className="field mt-1 w-full min-w-0 px-4 py-2.5 text-[15px] outline-none" />
                 </label>
               </div>
               {bebas.length > 0 && (
@@ -603,22 +603,22 @@ function ModalUbah({ tugasId, onTutup }: { tugasId: string; onTutup: () => void 
           placeholder="Rincian…"
           className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
         />
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <label className="text-[12px] font-extrabold">Tanggal
-            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="field mt-1 w-full px-3 py-2 text-[14px] outline-none" required />
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label className="min-w-0 text-[12px] font-extrabold">Tanggal
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="field mt-1 w-full min-w-0 px-3 py-2 text-[14px] outline-none" required />
           </label>
-          <label className="text-[12px] font-extrabold">Prioritas
-            <select value={prioritas} onChange={(e) => setPrioritas(e.target.value as Prioritas)} className="field mt-1 w-full px-3 py-2 text-[14px] outline-none">
+          <label className="min-w-0 text-[12px] font-extrabold">Prioritas
+            <select value={prioritas} onChange={(e) => setPrioritas(e.target.value as Prioritas)} className="field mt-1 w-full min-w-0 px-3 py-2 text-[14px] outline-none">
               <option value="rendah">Santai</option>
               <option value="sedang">Sedang</option>
               <option value="mendesak">Mendesak!</option>
             </select>
           </label>
-          <label className="text-[12px] font-extrabold">Pertemuan
-            <input type="number" min={1} max={16} value={pertemuan} onChange={(e) => setPertemuan(e.target.value)} placeholder="ke-?" className="field mt-1 w-full px-3 py-2 text-[14px] outline-none" />
+          <label className="min-w-0 text-[12px] font-extrabold">Pertemuan
+            <input type="number" min={1} max={16} value={pertemuan} onChange={(e) => setPertemuan(e.target.value)} placeholder="ke-?" className="field mt-1 w-full min-w-0 px-3 py-2 text-[14px] outline-none" />
           </label>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <button
             type="button"
             onClick={onTutup}

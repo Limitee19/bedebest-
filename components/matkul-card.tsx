@@ -61,7 +61,7 @@ export function MatkulCard({ m, onEdit, onDelete }: { m: Matkul; onEdit?: () => 
             {j.hari} · {j.jam}
           </p>
         ))}
-        <div className="mt-3 flex items-center gap-2 border-t-2 border-dashed border-(--color-line) pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-(--color-line) pt-3">
           <span className="text-[13px] font-bold text-(--color-soft)">Semester {m.semester}</span>
           {terbatas && (
             <span className="rounded-full bg-(--color-sky-soft) px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-(--color-sky)">

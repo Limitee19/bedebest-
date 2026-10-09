@@ -81,25 +81,27 @@ export default function TautanPage() {
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionTitle
-          no={<Link2 size={22} />}
-          title="Tautan Penting"
-          desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-3 sm:gap-y-2">
+        <div className="min-w-0 flex-1">
+          <SectionTitle
+            no={<Link2 size={22} />}
+            title="Tautan Penting"
+            desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
+          />
+        </div>
         <button
           onClick={() => {
             setErr(null);
             setTambahBuka(true);
           }}
-          className="btn-hard flex shrink-0 items-center gap-1.5 rounded-full bg-(--color-daun) px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white"
+          className="btn-hard flex w-full items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-4 py-3 text-[13px] font-extrabold uppercase tracking-widest text-white sm:mt-1 sm:w-auto sm:flex-none sm:px-5 sm:py-2.5"
         >
           <Plus size={15} strokeWidth={3} /> Tambah
         </button>
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-2">
-        <span className="field flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5">
+      <div className="mb-2 mt-4 grid gap-2">
+        <span className="field flex min-w-0 items-center gap-2 px-4 py-2.5">
           <Search size={16} className="shrink-0 text-(--color-faint)" />
           <input
             value={cari}
@@ -108,36 +110,38 @@ export default function TautanPage() {
               resetBatas();
             }}
             placeholder="Cari judul / keterangan…"
-            className="w-full bg-transparent text-[15px] outline-none"
+            className="w-full min-w-0 bg-transparent text-[15px] outline-none"
           />
         </span>
-        <select
-          value={filterMk}
-          onChange={(e) => {
-            setFilterMk(e.target.value);
-            resetBatas();
-          }}
-          className="field cursor-pointer px-4 py-2.5 text-[15px] font-bold"
-        >
-          <option value="semua">Semua ruang</option>
-          <option value="kelas">Milik kelas</option>
-          {matkulSaya.map((m) => (
-            <option key={m.id} value={m.id}>{m.nama}</option>
-          ))}
-        </select>
-        <select
-          value={filterKat}
-          onChange={(e) => {
-            setFilterKat(e.target.value);
-            resetBatas();
-          }}
-          className="field cursor-pointer px-4 py-2.5 text-[15px] font-bold"
-        >
-          <option value="semua">Semua jenis</option>
-          {KATEGORI.map((k) => (
-            <option key={k} value={k}>{LABEL_KATEGORI[k]}</option>
-          ))}
-        </select>
+        <span className="grid grid-cols-2 gap-2">
+          <select
+            value={filterMk}
+            onChange={(e) => {
+              setFilterMk(e.target.value);
+              resetBatas();
+            }}
+            className="field w-full min-w-0 cursor-pointer truncate px-3 py-2.5 text-[14px] font-bold"
+          >
+            <option value="semua">Semua ruang</option>
+            <option value="kelas">Milik kelas</option>
+            {matkulSaya.map((m) => (
+              <option key={m.id} value={m.id}>{m.nama}</option>
+            ))}
+          </select>
+          <select
+            value={filterKat}
+            onChange={(e) => {
+              setFilterKat(e.target.value);
+              resetBatas();
+            }}
+            className="field w-full min-w-0 cursor-pointer truncate px-3 py-2.5 text-[14px] font-bold"
+          >
+            <option value="semua">Semua jenis</option>
+            {KATEGORI.map((k) => (
+              <option key={k} value={k}>{LABEL_KATEGORI[k]}</option>
+            ))}
+          </select>
+        </span>
       </div>
       <p className="mb-4 text-[13px] font-bold text-(--color-faint)">
         {daftar.length} tautan · tampil {tampil.length}

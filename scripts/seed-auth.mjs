@@ -9,7 +9,8 @@
  * Aman dijalankan ulang — user yang sudah ada dilewati (diupdate passwordnya).
  */
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 // muat .env.local minimalis (tanpa dependensi dotenv)
@@ -28,20 +29,18 @@ function parseEnvLine(baris) {
   return [k, v.trim()];
 }
 try {
+  const dirScript = dirname(fileURLToPath(import.meta.url));
   const kandidat = [
-    new URL("../.env.local", import.meta.url),
-    new URL(`file:///${join(process.cwd(), ".env.local").replace(/\\/g, "/")}`),
+    resolve(dirScript, "../.env.local"),
+    resolve(process.cwd(), ".env.local"),
   ];
   let raw = null;
-  for (const u of kandidat) {
+  for (const p of kandidat) {
     try {
-      const p = u.pathname.replace(/^\/([A-Za-z]:)/, "$1");
       if (existsSync(p)) {
         raw = readFileSync(p, "utf8");
         break;
       }
-      raw = readFileSync(u, "utf8");
-      break;
     } catch {
       /* coba kandidat berikut */
     }

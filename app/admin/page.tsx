@@ -105,10 +105,10 @@ export default function AdminPage() {
           <p className="mt-0.5 text-[14px] text-(--color-soft)">
             Kata sandi setiap akun = NIM masing-masing. Bisa direset kapan pun.
           </p>
-          <form onSubmit={tambahUser} className="mt-3 grid gap-2 md:grid-cols-4">
-            <input value={nama} onChange={(e)=>setNama(e.target.value)} placeholder="Nama lengkap" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
-            <input value={nim} onChange={(e)=>setNim(e.target.value)} inputMode="numeric" placeholder="NIM (jadi kata sandi)" className="field px-4 py-2.5 text-[15px] outline-none" required />
-            <button className="btn-hard flex items-center justify-center gap-1.5 rounded-full bg-(--color-ink) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
+          <form onSubmit={tambahUser} className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+            <input value={nama} onChange={(e)=>setNama(e.target.value)} placeholder="Nama lengkap" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
+            <input value={nim} onChange={(e)=>setNim(e.target.value)} inputMode="numeric" placeholder="NIM (jadi kata sandi)" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none" required />
+            <button className="btn-hard flex items-center justify-center gap-1.5 rounded-full bg-(--color-ink) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] sm:col-span-2 md:col-span-1 dark:text-[#181222]">
               <Plus size={15} strokeWidth={3} /> Buat akun
             </button>
           </form>
@@ -172,13 +172,13 @@ export default function AdminPage() {
       {tab === "matkul" && (
         <section>
           <h3 className="font-display mb-3 text-[22px] font-bold">Mata kuliah ({matkul.length})</h3>
-          <form onSubmit={tambahMatkul} className="paper-card mb-4 grid gap-2 p-4 md:grid-cols-5">
-            <input value={fKode} onChange={(e)=>setFKode(e.target.value)} placeholder="Kode, mis. PMDR236099" className="field px-4 py-2.5 text-[15px] outline-none" required />
-            <input value={fNama} onChange={(e)=>setFNama(e.target.value)} placeholder="Nama matkul" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" required />
-            <input value={fDosen} onChange={(e)=>setFDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field px-4 py-2.5 text-[15px] outline-none" />
-            <span className="flex gap-2">
-              <input value={fSks} onChange={(e)=>setFSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field w-20 px-4 py-2.5 text-[15px] outline-none" />
-              <button className="btn-hard flex flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
+          <form onSubmit={tambahMatkul} className="paper-card mb-4 grid gap-2 p-4 sm:grid-cols-2 md:grid-cols-5">
+            <input value={fKode} onChange={(e)=>setFKode(e.target.value)} placeholder="Kode, mis. PMDR236099" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none" required />
+            <input value={fNama} onChange={(e)=>setFNama(e.target.value)} placeholder="Nama matkul" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none sm:col-span-2 md:col-span-2" required />
+            <input value={fDosen} onChange={(e)=>setFDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none sm:col-span-2 md:col-span-1" />
+            <span className="flex gap-2 sm:col-span-2 md:col-span-1">
+              <input value={fSks} onChange={(e)=>setFSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field w-20 shrink-0 px-4 py-2.5 text-[15px] outline-none" />
+              <button className="btn-hard flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
                 <Plus size={15} strokeWidth={3} /> Tambah
               </button>
             </span>

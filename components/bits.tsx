@@ -68,13 +68,13 @@ export function SectionTitle({
   desc?: string;
 }) {
   return (
-    <div className="mb-4 flex items-start gap-3">
-      <span className="font-display flex h-11 w-11 shrink-0 rotate-[-4deg] items-center justify-center rounded-2xl bg-(--color-ink) text-lg font-extrabold text-[#fff6e8] dark:text-[#181222]">
+    <div className="mb-4 flex min-w-0 items-start gap-2.5 sm:gap-3">
+      <span className="font-display flex h-10 w-10 shrink-0 rotate-[-4deg] items-center justify-center rounded-2xl bg-(--color-ink) text-base font-extrabold text-[#fff6e8] sm:h-11 sm:w-11 sm:text-lg dark:text-[#181222]">
         {no}
       </span>
-      <div>
-        <h2 className="font-display text-[26px] font-bold leading-tight">{title}</h2>
-        {desc && <p className="mt-0.5 text-[15px] text-(--color-soft)">{desc}</p>}
+      <div className="min-w-0 flex-1">
+        <h2 className="font-display text-[22px] font-bold leading-tight sm:text-[26px]">{title}</h2>
+        {desc && <p className="mt-0.5 text-[14px] text-(--color-soft) sm:text-[15px]">{desc}</p>}
       </div>
     </div>
   );

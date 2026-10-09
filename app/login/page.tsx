@@ -51,7 +51,7 @@ export default function LoginPage() {
             <span className="sticker inline-block bg-(--color-mint) px-3 py-1 text-[12px] font-extrabold uppercase tracking-widest text-white">
               {KELAS}
             </span>
-            <h1 className="font-display mt-3 text-[42px] font-bold leading-[1.02]">
+            <h1 className="font-display mt-3 text-[32px] font-bold leading-[1.05] sm:text-[42px] sm:leading-[1.02]">
               Satu papan,
               <br />
               semua tugas

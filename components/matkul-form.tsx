@@ -69,8 +69,8 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
         </p>
         <div className="mt-1.5 flex flex-col gap-2">
           {jadwal.map((j, i) => (
-            <div key={i} className="flex gap-1.5">
-              <select value={j.hari} onChange={(e) => ubahSesi(i, { hari: e.target.value })} className="field w-28 shrink-0 px-2 py-2 text-[14px] outline-none">
+            <div key={i} className="grid grid-cols-[auto_1fr_auto] gap-1.5 sm:flex">
+              <select value={j.hari} onChange={(e) => ubahSesi(i, { hari: e.target.value })} className="field col-span-3 min-w-0 px-2 py-2 text-[14px] outline-none sm:w-28 sm:flex-none">
                 {HARI_ORDER.map((h) => (
                   <option key={h} value={h}>{h}</option>
                 ))}

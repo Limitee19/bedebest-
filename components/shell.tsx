@@ -68,7 +68,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         : "Anggota";
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-6xl gap-5 px-4 py-5 md:px-6">
+    <div className="mx-auto flex min-h-screen w-full max-w-6xl min-w-0 gap-5 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
       {/* Sidebar */}
       <aside className="paper-card sticky top-5 hidden h-fit w-64 shrink-0 flex-col p-5 md:flex">
         <Link href="/">
@@ -151,33 +151,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Kolom konten */}
       <div className="min-w-0 flex-1">
         {/* Header mobile */}
-        <div className="paper-card mb-4 flex items-center justify-between gap-2 p-3 md:hidden">
-          <Link href="/">
-            <Logo size={34} />
+        <div className="paper-card mb-4 flex w-full min-w-0 items-center gap-1.5 p-2 md:hidden">
+          <Link href="/" className="min-w-0 flex-1 overflow-hidden">
+            <Logo size={28} compact />
           </Link>
-          <span className="flex items-center gap-2">
+          <span className="flex shrink-0 items-center gap-1.5">
             <Bell />
             <ThemeToggle compact />
             <Link
               href="/profil"
               title="Profilku & ganti sandi"
-              className={`rounded-full border-2 p-2 ${
+              className={`shrink-0 rounded-full border-2 p-1.5 ${
                 pathname.startsWith("/profil")
                   ? "border-(--color-ink) bg-(--color-ink) text-[#fff6e8]"
                   : "border-(--color-line)"
               }`}
             >
-              <UserRound size={16} />
+              <UserRound size={15} />
             </Link>
             <button
               onClick={() => {
                 logout();
                 router.replace("/login");
               }}
-              className="rounded-full border-2 border-(--color-line) p-2"
+              className="shrink-0 rounded-full border-2 border-(--color-line) p-1.5"
               title="Keluar"
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
           </span>
         </div>

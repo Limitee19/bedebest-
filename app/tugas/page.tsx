@@ -118,14 +118,14 @@ export default function TugasPage() {
           menyimpulkan jadi tugas resmi di halaman RPS.
         </p>
         <div className="mt-2.5 grid gap-2 md:grid-cols-3">
-          <select value={matkulId} onChange={(e) => setMk(e.target.value)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+          <select value={matkulId} onChange={(e) => setMk(e.target.value)} className="field min-w-0 px-4 py-2.5 text-[15px] font-semibold outline-none">
             {matkulSaya.map((m) => <option key={m.id} value={m.id}>{m.nama}</option>)}
           </select>
           <input
             value={isi}
             onChange={(e) => setIsi(e.target.value)}
             placeholder="Denger info tugas apa? Tulis di sini…"
-            className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2"
+            className="field min-w-0 px-4 py-2.5 text-[15px] outline-none md:col-span-2"
             required
           />
         </div>

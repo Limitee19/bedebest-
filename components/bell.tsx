@@ -150,9 +150,9 @@ export function Bell() {
       <button
         onClick={() => setBuka(true)}
         title="Notifikasi"
-        className="relative rounded-full border-2 border-(--color-line) bg-(--color-card) p-2 text-(--color-ink) transition-transform hover:-translate-y-0.5"
+        className="relative shrink-0 rounded-full border-2 border-(--color-line) bg-(--color-card) p-1.5 text-(--color-ink) transition-transform hover:-translate-y-0.5"
       >
-        <BellRing size={17} />
+        <BellRing size={15} />
         {badge > 0 && (
           <span className="font-display absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-(--color-apel) px-1 text-[11px] font-bold text-white">
             {badge}
