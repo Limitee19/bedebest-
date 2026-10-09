@@ -50,6 +50,7 @@ Future<void> simpanWidget(String judul, String baris) async {
 Future<void> cekHarian() async {
   final prefs = await SharedPreferences.getInstance();
   try {
+    if (!supaReady) await initSupa();
     if (Supabase.instance.client.auth.currentUser == null) return;
     final uid = Supabase.instance.client.auth.currentUser!.id;
     final mk = await sb.from('matkul').select('id,nama,jadwal,anggota_ids,pj_ids');

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,21 +15,54 @@ Future<void> alarmHarian() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initSupa();
-  await siapNotif();
-  await AndroidAlarmManager.initialize();
-  await AndroidAlarmManager.periodic(
-    const Duration(minutes: 30),
-    7,
-    alarmHarian,
-    wakeup: true,
-    rescheduleOnReboot: true,
-  );
-  runApp(const BeDeBestApp());
+  String? gagal;
+  try {
+    await initSupa();
+  } catch (e) {
+    gagal = '$e';
+  }
+  try {
+    await siapNotif();
+  } catch (_) {}
+  // Alarm hanya Android; desktop (Windows run) lewati agar tidak crash/blackscreen.
+  if (Platform.isAndroid) {
+    try {
+      await AndroidAlarmManager.initialize();
+      await AndroidAlarmManager.periodic(
+        const Duration(minutes: 30),
+        7,
+        alarmHarian,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
+    } catch (_) {}
+  }
+  // Flutter error → tampil merah di layar, jangan blackscreen misterius.
+  ErrorWidget.builder = (d) => Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('BeDeBest',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                const Text('Ada galat tampilan. Screenshot + kirim ke admin ya.'),
+                const SizedBox(height: 8),
+                Text('$d',
+                    style: const TextStyle(fontSize: 11, color: Colors.black54)),
+              ],
+            ),
+          ),
+        ),
+      );
+  runApp(BeDeBestApp(gagalBoot: gagal));
 }
 
 class BeDeBestApp extends StatelessWidget {
-  const BeDeBestApp({super.key});
+  final String? gagalBoot;
+  const BeDeBestApp({super.key, this.gagalBoot});
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +72,37 @@ class BeDeBestApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE8552F)),
-        fontFamily: 'Roboto',
       ),
-      home: const Gerbang(),
+      home: gagalBoot == null
+          ? const Gerbang()
+          : BootGagal(pesan: gagalBoot!),
+    );
+  }
+}
+
+class BootGagal extends StatelessWidget {
+  final String pesan;
+  const BootGagal({super.key, required this.pesan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('BeDeBest',
+                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              const Text('Gagal tersambung ke cloud. Cek internet lalu buka ulang.'),
+              const SizedBox(height: 8),
+              Text(pesan, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
