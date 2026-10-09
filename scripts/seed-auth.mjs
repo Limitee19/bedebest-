@@ -8,7 +8,8 @@
  * Email: <NIM>@siswa.bedebest.id (admin: email asli). Password = NIM.
  * Aman dijalankan ulang — user yang sudah ada dilewati (diupdate passwordnya).
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 // muat .env.local minimalis (tanpa dependensi dotenv)
@@ -27,7 +28,25 @@ function parseEnvLine(baris) {
   return [k, v.trim()];
 }
 try {
-  const raw = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
+  const kandidat = [
+    new URL("../.env.local", import.meta.url),
+    new URL(`file:///${join(process.cwd(), ".env.local").replace(/\\/g, "/")}`),
+  ];
+  let raw = null;
+  for (const u of kandidat) {
+    try {
+      const p = u.pathname.replace(/^\/([A-Za-z]:)/, "$1");
+      if (existsSync(p)) {
+        raw = readFileSync(p, "utf8");
+        break;
+      }
+      raw = readFileSync(u, "utf8");
+      break;
+    } catch {
+      /* coba kandidat berikut */
+    }
+  }
+  if (raw === null) throw new Error("missing");
   for (const baris of raw.split("\n")) {
     const p = parseEnvLine(baris);
     if (p && !process.env[p[0]]) process.env[p[0]] = p[1];
@@ -37,7 +56,10 @@ try {
   process.exit(1);
 }
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/(rest|auth)\/v1$/i, "");
 const SRV = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !SRV) {
   console.error("❌ Isi NEXT_PUBLIC_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di .env.local");
