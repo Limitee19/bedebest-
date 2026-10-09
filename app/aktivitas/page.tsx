@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   History,
   Lightbulb,
+  Link2,
   Megaphone,
   Stamp,
   UserPlus,
@@ -21,6 +22,7 @@ const IKON: Record<TipeAktivitas, { icon: typeof Megaphone; bg: string; fg: stri
   selesai: { icon: CheckCircle2, bg: "bg-(--color-daun-soft)", fg: "text-(--color-daun)" },
   anggota: { icon: UserPlus, bg: "bg-(--color-pink-soft)", fg: "text-(--color-pink)" },
   matkul: { icon: BookPlus, bg: "bg-(--color-cream)", fg: "text-(--color-soft)" },
+  tautan: { icon: Link2, bg: "bg-(--color-daun-soft)", fg: "text-(--color-daun)" },
 };
 
 export function waktuLalu(isoStr: string) {

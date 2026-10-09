@@ -90,9 +90,23 @@ create table if not exists public.ai_summaries (
 -- di aplikasi (atau cron hapus yang >90 hari). 120 baris ≈ 18 KB.
 create table if not exists public.aktivitas (
   id text primary key,
-  tipe text not null check (tipe in ('catatan','usulan','resmi','selesai','anggota','matkul')),
+  tipe text not null check (tipe in ('catatan','usulan','resmi','selesai','anggota','matkul','tautan')),
   teks text not null,
   oleh text not null default '',
+  created_at timestamptz not null default now()
+);
+
+-- Tautan penting: link kumpul GDrive, materi, spreadsheet data kelas.
+-- matkul_id = "" artinya milik kelas (semua anak). Selain itu milik matkul tsb.
+create table if not exists public.tautan (
+  id text primary key,
+  matkul_id text not null default '',
+  judul text not null check (char_length(judul) between 1 and 120),
+  url text not null check (char_length(url) between 1 and 2000),
+  kategori text not null default 'lainnya' check (kategori in ('kumpul','materi','data','lainnya')),
+  deskripsi text not null default '' check (char_length(deskripsi) <= 500),
+  oleh text not null default '',
+  oleh_id text,
   created_at timestamptz not null default now()
 );
 
@@ -114,11 +128,22 @@ alter table public.catatan_tugas enable row level security;
 alter table public.lampiran enable row level security;
 alter table public.ai_summaries enable row level security;
 alter table public.aktivitas enable row level security;
+alter table public.tautan enable row level security;
 alter table public.push_subscriptions enable row level security;
 
 -- Kolom baru hasil hardening: tambah bila tabel lama belum punya (aman rerun).
 alter table public.tugas add column if not exists dibuat_oleh_id text;
 alter table public.catatan_tugas add column if not exists oleh_id text;
+alter table public.tautan add column if not exists oleh_id text;
+
+-- Tipe aktivitas baru "tautan": longgarkan check lama bila tabel sudah ada.
+do $$
+begin
+  alter table public.aktivitas drop constraint if exists aktivitas_tipe_check;
+  alter table public.aktivitas add constraint aktivitas_tipe_check
+    check (tipe in ('catatan','usulan','resmi','selesai','anggota','matkul','tautan'));
+exception when others then null;
+end $$;
 
 -- Bersihkan policy lama agar file aman dijalankan ulang (tanpa hapus data).
 drop policy if exists "baca_kelas" on public.profiles;
@@ -145,6 +170,11 @@ drop policy if exists "pj_tugas" on public.tugas;
 drop policy if exists "pj_tugas_hapus" on public.tugas;
 drop policy if exists "pj_catatan_hapus" on public.catatan_tugas;
 drop policy if exists "pj_matkul" on public.matkul;
+drop policy if exists "baca_kelas_tautan" on public.tautan;
+drop policy if exists "tulis_tautan" on public.tautan;
+drop policy if exists "hapus_tautan_sendiri" on public.tautan;
+drop policy if exists "admin_tautan" on public.tautan;
+drop policy if exists "pj_tautan" on public.tautan;
 
 -- Semua anggota kelas yang login boleh baca semuanya
 create policy "baca_kelas" on public.profiles for select to authenticated using (true);
@@ -303,6 +333,22 @@ create policy "pj_catatan_hapus" on public.catatan_tugas for delete to authentic
 -- mengubah kode atau daftar PJ (itu wewenang admin).
 create policy "pj_matkul" on public.matkul for update to authenticated
   using (public.is_pj(id)) with check (public.is_pj(id));
+
+-- Tautan penting: semua yang login boleh baca (filter ruang ikut peserta
+-- ditegakkan di aplikasi; RLS jaga tulis/hapus di bawah).
+create policy "baca_kelas_tautan" on public.tautan for select to authenticated using (true);
+-- Siapa pun yang login boleh menambah tautan milik sendiri (oleh_id cocok / kosong).
+create policy "tulis_tautan" on public.tautan for insert to authenticated
+  with check (oleh_id is null or oleh_id = auth.uid()::text);
+-- Pembuat boleh hapus miliknya sendiri.
+create policy "hapus_tautan_sendiri" on public.tautan for delete to authenticated
+  using (oleh_id = auth.uid()::text);
+-- Admin boleh kelola semua tautan.
+create policy "admin_tautan" on public.tautan for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+-- PJ boleh hapus tautan di matkulnya.
+create policy "pj_tautan" on public.tautan for delete to authenticated
+  using (matkul_id <> '' and public.is_pj(matkul_id));
 
 create or replace function public.batasi_matkul_pj()
 returns trigger language plpgsql as $$

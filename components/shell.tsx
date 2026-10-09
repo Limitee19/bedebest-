@@ -10,9 +10,11 @@ import {
   ClipboardList,
   History,
   LayoutDashboard,
+  Link2,
   LogOut,
   ShieldCheck,
   Sparkles,
+  UserRound,
 } from "lucide-react";
 import { sudahSelesai, useStore } from "@/lib/store";
 import { tugasTerlihat } from "@/lib/data";
@@ -24,9 +26,11 @@ const NAV = [
   { href: "/", label: "Dasbor", icon: LayoutDashboard, dot: "bg-(--color-apel)" },
   { href: "/matkul", label: "Matkul", icon: BookOpenText, dot: "bg-(--color-sky)" },
   { href: "/tugas", label: "Tugas", icon: ClipboardList, dot: "bg-(--color-lemon)" },
+  { href: "/tautan", label: "Tautan", icon: Link2, dot: "bg-(--color-daun)" },
   { href: "/kalender", label: "Kalender", icon: CalendarDays, dot: "bg-(--color-mint)" },
   { href: "/arsip", label: "Arsip", icon: Archive, dot: "bg-(--color-anggur)" },
   { href: "/aktivitas", label: "Riwayat", icon: History, dot: "bg-(--color-pink)" },
+  { href: "/profil", label: "Profil", icon: UserRound, dot: "bg-(--color-sky)" },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -154,6 +158,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <span className="flex items-center gap-2">
             <Bell />
             <ThemeToggle compact />
+            <Link
+              href="/profil"
+              title="Profilku & ganti sandi"
+              className={`rounded-full border-2 p-2 ${
+                pathname.startsWith("/profil")
+                  ? "border-(--color-ink) bg-(--color-ink) text-[#fff6e8]"
+                  : "border-(--color-line)"
+              }`}
+            >
+              <UserRound size={16} />
+            </Link>
             <button
               onClick={() => {
                 logout();

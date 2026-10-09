@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Archive, CalendarHeart, MapPin, Megaphone, PencilLine, ScrollText, Stamp, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Archive, CalendarHeart, ExternalLink, Link2, MapPin, Megaphone, PencilLine, Plus, ScrollText, Stamp, Trash2, UserRound } from "lucide-react";
 import { sudahSelesai, useStore } from "@/lib/store";
-import { matkulTerlihat, subtaskSelesai } from "@/lib/data";
+import { LABEL_KATEGORI, domainDari, matkulTerlihat, subtaskSelesai, type KategoriTautan } from "@/lib/data";
 import { Shell } from "@/components/shell";
 import { SksCap, fmtTanggal, PertemuanCap, PrioritasCap } from "@/components/bits";
 import { ModalUbahMatkul } from "@/components/matkul-form";
@@ -15,7 +15,7 @@ import type { Prioritas } from "@/lib/data";
 export default function MatkulDetail() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { matkulById, tugas, catatan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan, hapusTugas } =
+  const { matkulById, tugas, catatan, tautan, addCatatan, finalizeTugas, toggleSelesai, toggleSubtask, user, users, bisaSimpulkan, arsipkan, hapusTugas } =
     useStore();
 
   const [isi, setIsi] = useState("");
@@ -29,6 +29,12 @@ export default function MatkulDetail() {
   const [fPrioritas, setFPrioritas] = useState<Prioritas>("sedang");
   const [fPertemuan, setFPertemuan] = useState("");
   const [fPilih, setFPilih] = useState<string[]>([]);
+  const [lJudul, setLJudul] = useState("");
+  const [lUrl, setLUrl] = useState("");
+  const [lKat, setLKat] = useState<KategoriTautan>("kumpul");
+  const [lDesk, setLDesk] = useState("");
+  const [lErr, setLErr] = useState<string | null>(null);
+  const [lTanyaId, setLTanyaId] = useState<string | null>(null);
 
   const m = matkulById(id);
   if (!m)
@@ -305,6 +311,24 @@ export default function MatkulDetail() {
             </p>
           )}
         </section>
+
+        {/* Tautan penting matkul ini */}
+        <SeksiTautan
+          matkulId={m!.id}
+          tautan={tautan.filter((t) => t.matkulId === m!.id)}
+          lJudul={lJudul}
+          setLJudul={setLJudul}
+          lUrl={lUrl}
+          setLUrl={setLUrl}
+          lKat={lKat}
+          setLKat={setLKat}
+          lDesk={lDesk}
+          setLDesk={setLDesk}
+          lErr={lErr}
+          setLErr={setLErr}
+          lTanyaId={lTanyaId}
+          setLTanyaId={setLTanyaId}
+        />
       </div>
 
       <ConfirmModal
@@ -356,6 +380,157 @@ export default function MatkulDetail() {
         />
       )}
     </Shell>
+  );
+}
+
+function SeksiTautan({
+  matkulId,
+  tautan,
+  lJudul,
+  setLJudul,
+  lUrl,
+  setLUrl,
+  lKat,
+  setLKat,
+  lDesk,
+  setLDesk,
+  lErr,
+  setLErr,
+  lTanyaId,
+  setLTanyaId,
+}: {
+  matkulId: string;
+  tautan: import("@/lib/data").Tautan[];
+  lJudul: string;
+  setLJudul: (v: string) => void;
+  lUrl: string;
+  setLUrl: (v: string) => void;
+  lKat: KategoriTautan;
+  setLKat: (v: KategoriTautan) => void;
+  lDesk: string;
+  setLDesk: (v: string) => void;
+  lErr: string | null;
+  setLErr: (v: string | null) => void;
+  lTanyaId: string | null;
+  setLTanyaId: (v: string | null) => void;
+}) {
+  const { user, matkul, addTautan, hapusTautan } = useStore();
+
+  function kirim(e: React.FormEvent) {
+    e.preventDefault();
+    const gagal = addTautan({ matkulId, judul: lJudul, url: lUrl, kategori: lKat, deskripsi: lDesk });
+    if (gagal) setLErr(gagal);
+    else {
+      setLJudul("");
+      setLUrl("");
+      setLDesk("");
+      setLErr(null);
+    }
+  }
+
+  function bolehHapus(t: import("@/lib/data").Tautan) {
+    if (!user) return false;
+    if (t.olehId ? t.olehId === user.id : t.oleh === user.nama) return true;
+    if (user.role === "admin") return true;
+    return matkul.some((mm) => mm.id === matkulId && (mm.pjIds ?? []).includes(user.id));
+  }
+
+  return (
+    <section>
+      <h2 className="font-display mb-3 flex items-center gap-2 text-[24px] font-bold">
+        <Link2 size={22} /> Tautan penting
+        <span className="tnum text-[16px] text-(--color-faint)">({tautan.length})</span>
+      </h2>
+      <div className="flex flex-col gap-2.5">
+        {tautan.map((t) => (
+          <div key={t.id} className="paper-card flex items-start gap-2.5 !rounded-2xl p-4">
+            <Link2 size={17} className="mt-0.5 shrink-0 text-(--color-daun)" />
+            <div className="min-w-0 flex-1">
+              <span className="rounded-full bg-(--color-daun-soft) px-2.5 py-0.5 text-[11px] font-extrabold text-(--color-daun)">
+                {LABEL_KATEGORI[t.kategori]} · {domainDari(t.url)}
+              </span>
+              <a
+                href={t.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-1.5 text-[16px] font-extrabold leading-snug hover:underline"
+              >
+                {t.judul}
+                <ExternalLink size={14} className="shrink-0" />
+              </a>
+              {t.deskripsi && <p className="mt-0.5 text-[14px] text-(--color-soft)">{t.deskripsi}</p>}
+              <p className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-(--color-faint)">
+                oleh {t.oleh}
+              </p>
+            </div>
+            {bolehHapus(t) && (
+              <button
+                onClick={() => setLTanyaId(t.id)}
+                title="Hapus tautan"
+                className="shrink-0 rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
+        ))}
+        {!tautan.length && (
+          <p className="text-[14px] font-medium text-(--color-faint)">
+            Belum ada tautan di matkul ini. Tambahkan link kumpul GDrive / materi pertama!
+          </p>
+        )}
+      </div>
+      <form onSubmit={kirim} className="paper-card mt-3 !rounded-2xl p-4">
+        <div className="grid gap-2 md:grid-cols-2">
+          <input
+            value={lJudul}
+            onChange={(e) => setLJudul(e.target.value)}
+            placeholder="Judul, mis. Kumpul Tugas GDrive"
+            className="field px-4 py-2.5 text-[15px] outline-none"
+            required
+            maxLength={120}
+          />
+          <input
+            value={lUrl}
+            onChange={(e) => setLUrl(e.target.value)}
+            placeholder="https://…"
+            inputMode="url"
+            className="field px-4 py-2.5 text-[15px] outline-none"
+            required
+          />
+          <select value={lKat} onChange={(e) => setLKat(e.target.value as KategoriTautan)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+            <option value="kumpul">Link kumpul</option>
+            <option value="materi">Materi</option>
+            <option value="data">Data kelas</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+          <input
+            value={lDesk}
+            onChange={(e) => setLDesk(e.target.value)}
+            placeholder="Keterangan (opsional)"
+            className="field px-4 py-2.5 text-[15px] outline-none"
+            maxLength={500}
+          />
+        </div>
+        {lErr && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{lErr}</p>}
+        <button type="submit" className="btn-hard mt-2.5 flex items-center gap-1.5 rounded-full bg-(--color-daun) px-6 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
+          <Plus size={15} strokeWidth={3} /> Simpan tautan
+        </button>
+      </form>
+      <ConfirmModal
+        open={lTanyaId !== null}
+        bahaya
+        judul="Hapus tautan ini?"
+        pesan="Tautan hilang dari semua akun. Yakin?"
+        batalLabel="Batal"
+        yaLabel="Ya, hapus"
+        onBatal={() => setLTanyaId(null)}
+        onYa={() => {
+          if (lTanyaId) hapusTautan(lTanyaId);
+          setLTanyaId(null);
+        }}
+      />
+    </section>
   );
 }
 

@@ -71,13 +71,60 @@ export interface Catatan {
   createdAt: string;
 }
 
+/** Tautan penting: GDrive kumpul tugas, spreadsheet nilai, dsb. */
+export type KategoriTautan = "kumpul" | "materi" | "data" | "lainnya";
+
+export interface Tautan {
+  id: string;
+  /** "" = milik kelas (tampil di /tautan). Isi matkulId = milik matkul tsb. */
+  matkulId: string;
+  judul: string;
+  url: string;
+  kategori: KategoriTautan;
+  deskripsi: string;
+  oleh: string;
+  olehId?: string;
+  createdAt: string;
+}
+
+export const LABEL_KATEGORI: Record<KategoriTautan, string> = {
+  kumpul: "Link kumpul",
+  materi: "Materi",
+  data: "Data kelas",
+  lainnya: "Lainnya",
+};
+
+/** URL aman untuk tautan: wajib http(s), tolak javascript:/data:/file:. */
+export function urlAman(raw: string): string | null {
+  const u = raw.trim().slice(0, 2000);
+  if (!u) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(u);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  return parsed.toString();
+}
+
+/** Label domain pendek untuk badge, mis. "docs.google.com". */
+export function domainDari(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").slice(0, 40);
+  } catch {
+    return "";
+  }
+}
+
 export type TipeAktivitas =
   | "catatan"
   | "usulan"
   | "resmi"
   | "selesai"
   | "anggota"
-  | "matkul";
+  | "matkul"
+  | "tautan";
 
 export interface Aktivitas {
   id: string;

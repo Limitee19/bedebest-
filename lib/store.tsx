@@ -8,11 +8,14 @@ import {
   seedMatkul,
   seedTugas,
   seedUsers,
+  urlAman,
   type Aktivitas,
   type Catatan,
+  type KategoriTautan,
   type Matkul,
   type Prioritas,
   type StatusTugas,
+  type Tautan,
   type TipeAktivitas,
   type Tugas,
   type User,
@@ -24,6 +27,7 @@ interface Store {
   matkul: Matkul[];
   tugas: Tugas[];
   catatan: Catatan[];
+  tautan: Tautan[];
   aktivitas: Aktivitas[];
   login: (nama: string, nim: string) => string | null;
   logout: () => void;
@@ -50,6 +54,16 @@ interface Store {
   addUsulan: (matkulId: string, isi: string) => void;
   /** Hapus catatan/usulan (pembuatnya, admin, atau PJ matkul tsb). */
   hapusCatatan: (id: string) => void;
+  /** Tambah tautan penting. null = berhasil, string = pesan error. */
+  addTautan: (input: {
+    matkulId: string;
+    judul: string;
+    url: string;
+    kategori: KategoriTautan;
+    deskripsi: string;
+  }) => string | null;
+  /** Hapus tautan (pembuatnya, admin, atau PJ matkul tsb). */
+  hapusTautan: (id: string) => void;
   finalizeTugas: (input: {
     matkulId: string;
     judul: string;
@@ -134,14 +148,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [matkul, setMatkul] = useState<Matkul[]>(seedMatkul);
   const [tugas, setTugas] = useState<Tugas[]>([]);
   const [catatan, setCatatan] = useState<Catatan[]>([]);
+  const [tautan, setTautan] = useState<Tautan[]>([]);
   const [aktivitas, setAktivitas] = useState<Aktivitas[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     // Hidrasi simpanan lokal sekali saat mount (pola standar, bukan cascade).
-    const saved = load<Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "aktivitas"> & { user: User | null }>(
+    const saved = load<Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & { user: User | null }>(
       LS_KEY,
-      () => ({ user: null, users: seedUsers(), matkul: seedMatkul, tugas: seedTugas(), catatan: seedCatatan(), aktivitas: seedAktivitas() })
+      () => ({ user: null, users: seedUsers(), matkul: seedMatkul, tugas: seedTugas(), catatan: seedCatatan(), tautan: [], aktivitas: seedAktivitas() })
     );
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(saved.user);
@@ -181,14 +196,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     ];
     setTugas(tugasBersih.length || catatanBaru.length ? tugasBersih : seedTugas());
     setCatatan(catatanBaru.length || tugasBersih.length ? catatanBaru : seedCatatan());
+    const tautanLama = (saved.tautan ?? []).map((t) => ({
+      ...t,
+      olehId: t.olehId ?? idDariNama.get(t.oleh),
+    }));
+    setTautan(tautanLama);
     setAktivitas(saved.aktivitas?.length ? saved.aktivitas : seedAktivitas());
     setReady(true);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    localStorage.setItem(LS_KEY, JSON.stringify({ user, users, matkul, tugas, catatan, aktivitas }));
-  }, [user, users, matkul, tugas, catatan, aktivitas, ready]);
+    localStorage.setItem(LS_KEY, JSON.stringify({ user, users, matkul, tugas, catatan, tautan, aktivitas }));
+  }, [user, users, matkul, tugas, catatan, tautan, aktivitas, ready]);
 
   function catat(tipe: TipeAktivitas, teks: string, oleh: string) {
     setAktivitas((p) =>
@@ -203,6 +223,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       matkul,
       tugas,
       catatan,
+      tautan,
       aktivitas,
       login: (nama, nim) => {
         const kunci = nama.trim().toLowerCase();
@@ -400,6 +421,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!milikku && !bolehKelola(saya, matkul, target.matkulId)) return;
         setCatatan((p) => p.filter((c) => c.id !== id));
       },
+      addTautan: (input) => {
+        if (!user) return "Kamu belum masuk.";
+        const judul = input.judul.trim().slice(0, 120);
+        if (!judul) return "Judul wajib diisi.";
+        const bersih = urlAman(input.url);
+        if (!bersih) return "Link tidak valid. Pakai http(s), mis. https://docs.google.com/…";
+        setTautan((p) => [
+          {
+            id: `l-${Date.now()}`,
+            matkulId: input.matkulId,
+            judul,
+            url: bersih,
+            kategori: input.kategori,
+            deskripsi: input.deskripsi.trim().slice(0, 500),
+            oleh: user.nama,
+            olehId: user.id,
+            createdAt: new Date().toISOString(),
+          },
+          ...p,
+        ]);
+        const namaMk = input.matkulId
+          ? (matkul.find((x) => x.id === input.matkulId)?.nama ?? "matkul")
+          : "kelas";
+        catat("tautan", `menambahkan tautan “${judul}” di ${namaMk}`, user.nama);
+        return null;
+      },
+      hapusTautan: (id) => {
+        const target = tautan.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya) return;
+        const milikku = target.olehId ? target.olehId === saya.id : target.oleh === saya.nama;
+        if (milikku) {
+          setTautan((p) => p.filter((t) => t.id !== id));
+          return;
+        }
+        if (saya.role === "admin") {
+          setTautan((p) => p.filter((t) => t.id !== id));
+          return;
+        }
+        if (target.matkulId && bolehKelola(saya, matkul, target.matkulId)) {
+          setTautan((p) => p.filter((t) => t.id !== id));
+        }
+      },
       updateTugasStatus: (id, status) =>
         setTugas((p) => p.map((t) => (t.id === id ? { ...t, status } : t))),
       arsipkan: (id, nilai) => {
@@ -492,7 +556,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       matkulById: (id) => matkul.find((m) => m.id === id),
     }),
-    [user, users, matkul, tugas, catatan, aktivitas]
+    [user, users, matkul, tugas, catatan, tautan, aktivitas]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
