@@ -133,6 +133,7 @@ alter table public.push_subscriptions enable row level security;
 
 -- Kolom baru hasil hardening: tambah bila tabel lama belum punya (aman rerun).
 alter table public.tugas add column if not exists dibuat_oleh_id text;
+alter table public.tugas add column if not exists subtask jsonb not null default '[]';
 alter table public.catatan_tugas add column if not exists oleh_id text;
 alter table public.tautan add column if not exists oleh_id text;
 
@@ -249,6 +250,11 @@ create policy "admin_profiles" on public.profiles for all to authenticated using
 -- Admin/PJ tetap lewat policy admin/pj di bawah + trigger.
 create policy "hapus_usulan_sendiri" on public.tugas for delete to authenticated
   using (status = 'usulan' and dibuat_oleh_id = auth.uid()::text);
+-- Admin & PJ boleh insert tugas resmi langsung (finalisasi); anggota hanya usulan.
+create policy "admin_tugas_insert" on public.tugas for insert to authenticated
+  with check (public.is_admin());
+create policy "pj_tugas_insert" on public.tugas for insert to authenticated
+  with check (public.is_pj(matkul_id));
 create policy "hapus_catatan_sendiri" on public.catatan_tugas for delete to authenticated
   using (oleh_id = auth.uid()::text);
 create policy "admin_catatan_hapus" on public.catatan_tugas for delete to authenticated
@@ -367,6 +373,39 @@ end $$;
 drop trigger if exists trg_batasi_matkul_pj on public.matkul;
 create trigger trg_batasi_matkul_pj
   before update on public.matkul for each row execute function public.batasi_matkul_pj();
+
+-- ============ REALTIME (untuk HP / app mobile / widget) ============
+-- Publikasikan tabel agar perubahan langsung mengalir ke semua perangkat.
+do $$
+begin
+  alter publication supabase_realtime add table public.matkul;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.tugas;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.catatan_tugas;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.tautan;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.aktivitas;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.profiles;
+exception when duplicate_object then null;
+end $$;
 
 -- ============ SEED: 6 matkul Offering B(EST) PBM (sumber: PLM/plm.db) ============
 -- ON CONFLICT DO NOTHING agar aman dijalankan ulang tanpa error duplikat.

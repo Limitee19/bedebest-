@@ -9,11 +9,12 @@ import { Logo } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
-  const { user, login, users } = useStore();
+  const { user, login, users, mode, cloudSiap } = useStore();
   const router = useRouter();
   const [nama, setNama] = useState("");
   const [nim, setNim] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sibuk, setSibuk] = useState(false);
 
   useEffect(() => {
     if (user) router.replace("/");
@@ -23,11 +24,17 @@ export default function LoginPage() {
 
   const terurut = [...users].sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const err = login(nama, nim);
-    if (err) setError(err);
-    else router.replace("/");
+    setSibuk(true);
+    setError(null);
+    try {
+      const err = await login(nama, nim);
+      if (err) setError(err);
+      else router.replace("/");
+    } finally {
+      setSibuk(false);
+    }
   }
 
   return (
@@ -122,14 +129,20 @@ export default function LoginPage() {
             )}
             <button
               type="submit"
-              className="btn-hard font-display mt-1 rounded-full bg-(--color-apel) px-4 py-3.5 text-[18px] font-bold text-white"
+              disabled={sibuk}
+              className="btn-hard font-display mt-1 rounded-full bg-(--color-apel) px-4 py-3.5 text-[18px] font-bold text-white disabled:opacity-60"
             >
-              Masuk ke papan
+              {sibuk ? "Masuk…" : "Masuk ke papan"}
             </button>
           </form>
           <div className="mt-5 rounded-2xl bg-(--color-cream) p-3.5 text-[13px] leading-relaxed text-(--color-soft)">
             {users.length} akun Offering B(EST) PBM terdaftar. Admin: Muhammad Ariel
             Fathoni (NIM {ADMIN_NIM}).
+            {mode === "cloud" && cloudSiap ? (
+              <> Data tersambung cloud — HP & laptop sinkron realtime.</>
+            ) : (
+              <> Menyambungkan ke cloud… bila gagal, mode lokal sementara dipakai.</>
+            )}
           </div>
         </div>
       </div>

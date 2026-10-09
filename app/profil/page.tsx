@@ -7,25 +7,31 @@ import { Shell } from "@/components/shell";
 import { SectionTitle } from "@/components/bits";
 
 export default function ProfilPage() {
-  const { user, gantiPassword } = useStore();
+  const { user, gantiPassword, mode, cloudSiap } = useStore();
   const [lama, setLama] = useState("");
   const [baru, setBaru] = useState("");
   const [ulang, setUlang] = useState("");
   const [pesan, setPesan] = useState<{ ok: boolean; teks: string } | null>(null);
+  const [sibuk, setSibuk] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (baru !== ulang) {
       setPesan({ ok: false, teks: "Konfirmasi tidak sama dengan kata sandi baru." });
       return;
     }
-    const err = gantiPassword(lama, baru);
-    if (err) setPesan({ ok: false, teks: err });
-    else {
-      setPesan({ ok: true, teks: "Kata sandi berhasil diganti! Ingat-ingat yang baru ya." });
-      setLama("");
-      setBaru("");
-      setUlang("");
+    setSibuk(true);
+    try {
+      const err = await gantiPassword(lama, baru);
+      if (err) setPesan({ ok: false, teks: err });
+      else {
+        setPesan({ ok: true, teks: "Kata sandi berhasil diganti! Ingat-ingat yang baru ya." });
+        setLama("");
+        setBaru("");
+        setUlang("");
+      }
+    } finally {
+      setSibuk(false);
     }
   }
 
@@ -95,10 +101,16 @@ export default function ProfilPage() {
             {pesan.teks}
           </p>
         )}
-        <button type="submit" className="btn-hard mt-3.5 rounded-full bg-(--color-ink) px-6 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
-          Simpan kata sandi baru
+        <button type="submit" disabled={sibuk} className="btn-hard mt-3.5 rounded-full bg-(--color-ink) px-6 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] disabled:opacity-60 dark:text-[#181222]">
+          {sibuk ? "Menyimpan…" : "Simpan kata sandi baru"}
         </button>
         <p className="mt-3 flex items-start gap-1.5 text-[12px] font-medium leading-relaxed text-(--color-faint)">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+          {mode === "cloud" && cloudSiap
+            ? "Tersambung cloud — sandi baru berlaku di HP & laptop sekaligus."
+            : "Menyambungkan ke cloud… bila gagal, sandi tersimpan lokal sementara."}
+        </p>
+        <p className="mt-1.5 flex items-start gap-1.5 text-[12px] font-medium leading-relaxed text-(--color-faint)">
           <ShieldCheck size={14} className="mt-0.5 shrink-0" />
           Lupa kata sandi barumu? Minta admin meresetnya kembali ke NIM lewat
           halaman Kelola Kelas.

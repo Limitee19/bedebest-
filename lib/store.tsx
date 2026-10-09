@@ -1,6 +1,22 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { isSupabaseConfigured, supabase } from "./supabase";
+import {
+  cloudAmbilUser,
+  cloudGantiPassword,
+  cloudHapus,
+  cloudLogin,
+  cloudLogout,
+  cloudMuatSemua,
+  cloudSubscribe,
+  cloudUpsert,
+  keRowAktivitas,
+  keRowCatatan,
+  keRowMatkul,
+  keRowTautan,
+  keRowTugas,
+} from "./cloud";
 import {
   ADMIN_EMAIL,
   seedAktivitas,
@@ -29,10 +45,13 @@ interface Store {
   catatan: Catatan[];
   tautan: Tautan[];
   aktivitas: Aktivitas[];
-  login: (nama: string, nim: string) => string | null;
+  /** "cloud" = tersambung ke Supabase (HP & desktop sinkron + realtime). */
+  mode: "cloud" | "lokal";
+  cloudSiap: boolean;
+  login: (nama: string, nim: string) => Promise<string | null>;
   logout: () => void;
   /** Ganti kata sandi sendiri. null = berhasil. */
-  gantiPassword: (lama: string, baru: string) => string | null;
+  gantiPassword: (lama: string, baru: string) => Promise<string | null>;
   addUser: (nama: string, nim: string) => string | null;
   removeUser: (id: string) => void;
   resetPassword: (id: string) => void;
@@ -151,15 +170,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tautan, setTautan] = useState<Tautan[]>([]);
   const [aktivitas, setAktivitas] = useState<Aktivitas[]>([]);
   const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState<"cloud" | "lokal">("lokal");
+  const [cloudSiap, setCloudSiap] = useState(false);
+  const modeRef = useRef<"cloud" | "lokal">("lokal");
+  const reloadRef = useRef(false);
 
-  useEffect(() => {
-    // Hidrasi simpanan lokal sekali saat mount (pola standar, bukan cascade).
-    const saved = load<Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & { user: User | null }>(
-      LS_KEY,
-      () => ({ user: null, users: seedUsers(), matkul: seedMatkul, tugas: seedTugas(), catatan: seedCatatan(), tautan: [], aktivitas: seedAktivitas() })
-    );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setUser(saved.user);
+  function terapkanCloud(d: {
+    users: User[];
+    matkul: Matkul[];
+    tugas: Tugas[];
+    catatan: Catatan[];
+    tautan: Tautan[];
+    aktivitas: Aktivitas[];
+  }) {
+    // Cloud = sumber kebenaran bila ada datanya; seed lokal hanya fallback awal.
+    setUsers(d.users.length ? d.users : seedUsers());
+    setMatkul(d.matkul.length ? d.matkul : seedMatkul);
+    setTugas(d.tugas);
+    setCatatan(d.catatan);
+    setTautan(d.tautan);
+    setAktivitas(d.aktivitas);
+  }
+
+  function terapkanLokal(
+    saved: Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & {
+      user: User | null;
+    }
+  ) {
+    if (modeRef.current === "cloud") return;
     setUsers(saved.users.length ? saved.users : seedUsers());
     setMatkul(saved.matkul.length ? saved.matkul : seedMatkul);
     // Migrasi: usulan model lama (tugas berstatus usulan) diubah jadi catatan info,
@@ -203,17 +241,122 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTautan(tautanLama);
     setAktivitas(saved.aktivitas?.length ? saved.aktivitas : seedAktivitas());
     setReady(true);
+  }
+
+  const muatUlangCloud = useRef(async () => {
+    if (reloadRef.current) return;
+    reloadRef.current = true;
+    try {
+      const d = await cloudMuatSemua();
+      if (d && modeRef.current === "cloud") terapkanCloud(d);
+    } finally {
+      reloadRef.current = false;
+    }
+  }).current;
+
+  useEffect(() => {
+    let lepas: (() => void) | undefined;
+    let batal = false;
+    async function mulai() {
+      // 1) tampilkan cache lokal dulu biar cepat (khusus HP lemot)
+      const saved = load<
+        Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & {
+          user: User | null;
+        }
+      >(LS_KEY, () => ({
+        user: null,
+        users: seedUsers(),
+        matkul: seedMatkul,
+        tugas: seedTugas(),
+        catatan: seedCatatan(),
+        tautan: [],
+        aktivitas: seedAktivitas(),
+      }));
+      if (!batal) {
+        terapkanLokal(saved);
+        setUser(saved.user);
+      }
+      // 2) bila Supabase terkonfigurasi: ambil sesi + data cloud (sumber kebenaran)
+      if (!isSupabaseConfigured()) return;
+      const u = await cloudAmbilUser();
+      if (batal) return;
+      const d = await cloudMuatSemua();
+      if (batal) return;
+      modeRef.current = "cloud";
+      setMode("cloud");
+      setCloudSiap(true);
+      if (d) terapkanCloud(d);
+      if (u) setUser(u);
+      // 3) realtime: tiap ada perubahan di cloud, muat ulang semua perangkat
+      lepas = cloudSubscribe(() => {
+        void muatUlangCloud();
+      });
+      // sinkron sesi auth (login/logout dari tab lain)
+      const sb = supabase();
+      const { data: sub } = sb
+        ? sb.auth.onAuthStateChange((_ev, sesi) => {
+            if (!sesi?.user) {
+              setUser(null);
+              return;
+            }
+            void cloudAmbilUser().then((x) => {
+              if (x) setUser(x);
+            });
+          })
+        : { data: null };
+      const lepasAuth = () => sub?.subscription.unsubscribe();
+      const lepasAwal = lepas;
+      lepas = () => {
+        lepasAwal?.();
+        lepasAuth();
+      };
+    }
+    void mulai();
+    return () => {
+      batal = true;
+      lepas?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    localStorage.setItem(LS_KEY, JSON.stringify({ user, users, matkul, tugas, catatan, tautan, aktivitas }));
+    try {
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({ user, users, matkul, tugas, catatan, tautan, aktivitas })
+      );
+    } catch {
+      /* penyimpanan penuh / privat — abaikan, cloud tetap jalan */
+    }
   }, [user, users, matkul, tugas, catatan, tautan, aktivitas, ready]);
 
   function catat(tipe: TipeAktivitas, teks: string, oleh: string) {
-    setAktivitas((p) =>
-      [{ id: `a-${Date.now()}-${Math.floor(Math.random() * 1e4)}`, tipe, teks, oleh, waktu: new Date().toISOString() }, ...p].slice(0, 120)
-    );
+    const entri: Aktivitas = {
+      id: `a-${Date.now()}-${Math.floor(Math.random() * 1e4)}`,
+      tipe,
+      teks,
+      oleh,
+      waktu: new Date().toISOString(),
+    };
+    setAktivitas((p) => [entri, ...p].slice(0, 120));
+    if (modeRef.current === "cloud") void cloudUpsert("aktivitas", keRowAktivitas(entri));
+  }
+
+  function syncKeCloud(
+    tbl: "matkul" | "tugas" | "catatan_tugas" | "tautan",
+    row: import("./cloud").CloudRow | Matkul | Tugas | Catatan | Tautan
+  ) {
+    if (modeRef.current !== "cloud") return;
+    if (tbl === "matkul") void cloudUpsert(tbl, keRowMatkul(row as Matkul));
+    else if (tbl === "tugas") void cloudUpsert(tbl, keRowTugas(row as Tugas));
+    else if (tbl === "catatan_tugas") void cloudUpsert(tbl, keRowCatatan(row as Catatan));
+    else void cloudUpsert(tbl, keRowTautan(row as Tautan));
+  }
+
+  function hapusKeCloud(tbl: "matkul" | "tugas" | "catatan_tugas" | "tautan", id: string) {
+    if (modeRef.current !== "cloud") return;
+    void cloudHapus(tbl, id);
   }
 
   const value: Store = useMemo(
@@ -225,22 +368,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       catatan,
       tautan,
       aktivitas,
-      login: (nama, nim) => {
+      mode,
+      cloudSiap,
+      login: async (nama, nim) => {
+        // Cloud dulu (Supabase Auth = sinkron HP & desktop). Gagal → fallback lokal.
+        if (isSupabaseConfigured()) {
+          const hasil = await cloudLogin(nama, nim);
+          if (hasil.user) {
+            setUser(hasil.user);
+            void muatUlangCloud();
+            return null;
+          }
+          // bila cloud menolak karena sandi salah, jangan diam-diam lolos lokal
+          // kecuali memang belum ada akun cloud (offline / belum seed).
+          const offline = !navigator.onLine;
+          if (!offline && /salah/i.test(hasil.error ?? "")) return hasil.error;
+        }
         const kunci = nama.trim().toLowerCase();
         const found = users.find(
           (u) => u.nama.toLowerCase() === kunci && u.password === nim.trim()
         );
         if (!found)
-          return "Nama atau NIM salah. Pilih namamu dari daftar, kata sandinya NIM kamu.";
+          return "Nama atau kata sandi salah. Pilih namamu dari daftar, kata sandinya NIM kamu (atau sandi barumu bila sudah diganti).";
         setUser(found);
         return null;
       },
-      logout: () => setUser(null),
-      gantiPassword: (lama, baru) => {
+      logout: () => {
+        setUser(null);
+        void cloudLogout();
+      },
+      gantiPassword: async (lama, baru) => {
         if (!user) return "Kamu belum masuk.";
-        if (user.password !== lama) return "Kata sandi lama salah.";
         if (baru.trim().length < 6) return "Kata sandi baru minimal 6 karakter.";
         if (baru.trim() === lama) return "Kata sandi baru sama dengan yang lama.";
+        if (modeRef.current === "cloud") {
+          const gagal = await cloudGantiPassword(baru);
+          if (gagal) return gagal;
+          setUser({ ...user, password: baru.trim() });
+          setUsers((p) => p.map((u) => (u.id === user.id ? { ...u, password: baru.trim() } : u)));
+          return null;
+        }
+        if (user.password !== lama) return "Kata sandi lama salah.";
         const pw = baru.trim();
         setUsers((p) => p.map((u) => (u.id === user.id ? { ...u, password: pw } : u)));
         setUser({ ...user, password: pw });
@@ -278,15 +446,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return p.map((u) => (u.id === id ? { ...u, password: target.nim } : u));
         }),
       addMatkul: (m) => {
-        setMatkul((p) => [...p, { ...m, pjIds: [], anggotaIds: [], id: `mk-${Date.now()}` }]);
+        const entri: Matkul = { ...m, pjIds: [], anggotaIds: [], id: `mk-${Date.now()}` };
+        setMatkul((p) => [...p, entri]);
+        syncKeCloud("matkul", entri);
         if (user) catat("matkul", `menambahkan matkul “${m.nama}”`, user.nama);
       },
       updateMatkul: (id, m) => {
-        setMatkul((p) => p.map((x) => (x.id === id ? { ...x, ...m } : x)));
         const target = matkul.find((x) => x.id === id);
+        if (!target) return;
+        const baru = { ...target, ...m };
+        setMatkul((p) => p.map((x) => (x.id === id ? baru : x)));
+        syncKeCloud("matkul", baru);
         if (target && user) catat("matkul", `mengubah info ${target.nama}`, user.nama);
       },
       tambahPj: (matkulId, userId) => {
+        const mk = matkul.find((x) => x.id === matkulId);
+        const baru = mk
+          ? { ...mk, pjIds: (mk.pjIds ?? []).includes(userId) ? mk.pjIds : [...(mk.pjIds ?? []), userId] }
+          : null;
         setMatkul((p) =>
           p.map((x) =>
             x.id === matkulId && !(x.pjIds ?? []).includes(userId)
@@ -294,22 +471,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               : x
           )
         );
+        if (baru) syncKeCloud("matkul", baru);
         setUsers((p) =>
           p.map((u) => (u.id === userId && u.role === "member" ? { ...u, role: "pj" } : u))
         );
         if (user && user.id === userId && user.role === "member")
           setUser({ ...user, role: "pj" });
         const target = users.find((u) => u.id === userId);
-        const mk = matkul.find((x) => x.id === matkulId);
         if (target && mk && user) catat("anggota", `mengangkat “${target.nama}” jadi PJ ${mk.nama}`, user.nama);
       },
       hapusPj: (matkulId, userId) => {
         const sisa = matkul.filter((x) => x.id !== matkulId).flatMap((x) => x.pjIds ?? []);
+        const mk = matkul.find((x) => x.id === matkulId);
+        const baru = mk ? { ...mk, pjIds: (mk.pjIds ?? []).filter((v) => v !== userId) } : null;
         setMatkul((p) =>
           p.map((x) =>
             x.id === matkulId ? { ...x, pjIds: (x.pjIds ?? []).filter((v) => v !== userId) } : x
           )
         );
+        if (baru) syncKeCloud("matkul", baru);
         // turunkan ke member bila tak lagi PJ di matkul mana pun (admin aman)
         if (!sisa.includes(userId)) {
           setUsers((p) =>
@@ -319,12 +499,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setUser({ ...user, role: "member" });
         }
         const target = users.find((u) => u.id === userId);
-        const mk = matkul.find((x) => x.id === matkulId);
         if (target && mk && user) catat("anggota", `melepas “${target.nama}” dari PJ ${mk.nama}`, user.nama);
       },
       setPeserta: (matkulId, ids) => {
-        setMatkul((p) => p.map((x) => (x.id === matkulId ? { ...x, anggotaIds: ids } : x)));
         const mk = matkul.find((x) => x.id === matkulId);
+        const baru = mk ? { ...mk, anggotaIds: ids } : null;
+        setMatkul((p) => p.map((x) => (x.id === matkulId ? { ...x, anggotaIds: ids } : x)));
+        if (baru) syncKeCloud("matkul", baru);
         if (mk && user)
           catat(
             "matkul",
@@ -345,6 +526,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setMatkul((p) => p.filter((x) => x.id !== id));
         setTugas((p) => p.filter((t) => t.matkulId !== id));
         setCatatan((p) => p.filter((c) => c.matkulId !== id));
+        hapusKeCloud("matkul", id);
         if (target && user) catat("matkul", `menghapus matkul “${target.nama}”`, user.nama);
       },
       addCatatan: (matkulId, isi) => {
@@ -352,17 +534,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const teks = isi.trim().slice(0, 2000);
         if (!teks) return;
         const namaMk = matkul.find((x) => x.id === matkulId)?.nama ?? "matkul";
-        setCatatan((p) => [
-          {
-            id: `c-${Date.now()}`,
-            matkulId,
-            isi: teks,
-            oleh: user.nama,
-            olehId: user.id,
-            createdAt: new Date().toISOString(),
-          },
-          ...p,
-        ]);
+        const entri: Catatan = {
+          id: `c-${Date.now()}`,
+          matkulId,
+          isi: teks,
+          oleh: user.nama,
+          olehId: user.id,
+          createdAt: new Date().toISOString(),
+        };
+        setCatatan((p) => [entri, ...p]);
+        syncKeCloud("catatan_tugas", entri);
         catat("catatan", `mencatat info di ${namaMk}`, user.nama);
       },
       finalizeTugas: (input) => {
@@ -372,26 +553,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const deskripsi = input.deskripsi.trim().slice(0, 5000) || "—";
         if (!judul || !input.deadline) return;
         const id = `t-${Date.now()}`;
-        setTugas((p) => [
-          {
-            id,
-            matkulId: input.matkulId,
-            judul,
-            deskripsi,
-            deadline: akhirHari(input.deadline),
-            prioritas: input.prioritas,
-            pertemuan: input.pertemuan,
-            status: "resmi",
-            dibuatOleh: saya.nama,
-            dibuatOlehId: saya.id,
-            disimpulkanOleh: saya.nama,
-            subtask: [],
-          },
-          ...p,
-        ]);
+        const entri: Tugas = {
+          id,
+          matkulId: input.matkulId,
+          judul,
+          deskripsi,
+          deadline: akhirHari(input.deadline),
+          prioritas: input.prioritas,
+          pertemuan: input.pertemuan,
+          status: "resmi",
+          dibuatOleh: saya.nama,
+          dibuatOlehId: saya.id,
+          disimpulkanOleh: saya.nama,
+          subtask: [],
+        };
+        setTugas((p) => [entri, ...p]);
+        syncKeCloud("tugas", entri);
         setCatatan((p) =>
           p.map((c) => (input.catatanIds.includes(c.id) ? { ...c, tugasId: id } : c))
         );
+        if (modeRef.current === "cloud") {
+          for (const cid of input.catatanIds) {
+            const c = catatan.find((x) => x.id === cid);
+            if (c) void cloudUpsert("catatan_tugas", keRowCatatan({ ...c, tugasId: id }));
+          }
+        }
         catat("resmi", `menerbitkan tugas resmi “${input.judul}”`, saya.nama);
       },
       addUsulan: (matkulId, isi) => {
@@ -399,17 +585,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const teks = isi.trim().slice(0, 2000);
         if (!teks) return;
         const namaMk = matkul.find((x) => x.id === matkulId)?.nama ?? "matkul";
-        setCatatan((p) => [
-          {
-            id: `c-${Date.now()}`,
-            matkulId,
-            isi: teks,
-            oleh: user.nama,
-            olehId: user.id,
-            createdAt: new Date().toISOString(),
-          },
-          ...p,
-        ]);
+        const entri: Catatan = {
+          id: `c-${Date.now()}`,
+          matkulId,
+          isi: teks,
+          oleh: user.nama,
+          olehId: user.id,
+          createdAt: new Date().toISOString(),
+        };
+        setCatatan((p) => [entri, ...p]);
+        syncKeCloud("catatan_tugas", entri);
         catat("usulan", `melaporkan info di ${namaMk}`, user.nama);
       },
       hapusCatatan: (id) => {
@@ -420,6 +605,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const milikku = target.olehId ? target.olehId === saya.id : target.oleh === saya.nama;
         if (!milikku && !bolehKelola(saya, matkul, target.matkulId)) return;
         setCatatan((p) => p.filter((c) => c.id !== id));
+        hapusKeCloud("catatan_tugas", id);
       },
       addTautan: (input) => {
         if (!user) return "Kamu belum masuk.";
@@ -427,20 +613,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!judul) return "Judul wajib diisi.";
         const bersih = urlAman(input.url);
         if (!bersih) return "Link tidak valid. Pakai http(s), mis. https://docs.google.com/…";
-        setTautan((p) => [
-          {
-            id: `l-${Date.now()}`,
-            matkulId: input.matkulId,
-            judul,
-            url: bersih,
-            kategori: input.kategori,
-            deskripsi: input.deskripsi.trim().slice(0, 500),
-            oleh: user.nama,
-            olehId: user.id,
-            createdAt: new Date().toISOString(),
-          },
-          ...p,
-        ]);
+        const entri: Tautan = {
+          id: `l-${Date.now()}`,
+          matkulId: input.matkulId,
+          judul,
+          url: bersih,
+          kategori: input.kategori,
+          deskripsi: input.deskripsi.trim().slice(0, 500),
+          oleh: user.nama,
+          olehId: user.id,
+          createdAt: new Date().toISOString(),
+        };
+        setTautan((p) => [entri, ...p]);
+        syncKeCloud("tautan", entri);
         const namaMk = input.matkulId
           ? (matkul.find((x) => x.id === input.matkulId)?.nama ?? "matkul")
           : "kelas";
@@ -454,23 +639,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const milikku = target.olehId ? target.olehId === saya.id : target.oleh === saya.nama;
         if (milikku) {
           setTautan((p) => p.filter((t) => t.id !== id));
+          hapusKeCloud("tautan", id);
           return;
         }
         if (saya.role === "admin") {
           setTautan((p) => p.filter((t) => t.id !== id));
+          hapusKeCloud("tautan", id);
           return;
         }
         if (target.matkulId && bolehKelola(saya, matkul, target.matkulId)) {
           setTautan((p) => p.filter((t) => t.id !== id));
+          hapusKeCloud("tautan", id);
         }
       },
-      updateTugasStatus: (id, status) =>
-        setTugas((p) => p.map((t) => (t.id === id ? { ...t, status } : t))),
+      updateTugasStatus: (id, status) => {
+        const target = tugas.find((t) => t.id === id);
+        if (!target) return;
+        const baru = { ...target, status };
+        setTugas((p) => p.map((t) => (t.id === id ? baru : t)));
+        syncKeCloud("tugas", baru);
+      },
       arsipkan: (id, nilai) => {
         const target = tugas.find((t) => t.id === id);
         const saya = user;
         if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
-        setTugas((p) => p.map((t) => (t.id === id ? { ...t, arsip: nilai } : t)));
+        const baru = { ...target, arsip: nilai };
+        setTugas((p) => p.map((t) => (t.id === id ? baru : t)));
+        syncKeCloud("tugas", baru);
         catat(
           "resmi",
           nilai
@@ -492,71 +687,65 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         setTugas((p) => p.filter((t) => t.id !== id));
         setCatatan((p) => p.map((c) => (c.tugasId === id ? { ...c, tugasId: undefined } : c)));
+        hapusKeCloud("tugas", id);
         catat("usulan", `menghapus “${target.judul}”`, saya.nama);
       },
       updateTugas: (id, patch) => {
         const target = tugas.find((t) => t.id === id);
         const saya = user;
         if (!target || !saya || !bolehKelola(saya, matkul, target.matkulId)) return;
-        setTugas((p) =>
-          p.map((t) =>
-            t.id === id
-              ? {
-                  ...t,
-                  ...(patch.judul !== undefined ? { judul: patch.judul.trim().slice(0, 200) } : {}),
-                  ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi.trim().slice(0, 5000) || "—" } : {}),
-                  ...(patch.deadline !== undefined ? { deadline: akhirHari(patch.deadline) } : {}),
-                  ...(patch.prioritas !== undefined ? { prioritas: patch.prioritas } : {}),
-                  ...(patch.pertemuan !== undefined ? { pertemuan: patch.pertemuan } : {}),
-                }
-              : t
-          )
-        );
+        const patchBersih = {
+          ...(patch.judul !== undefined ? { judul: patch.judul.trim().slice(0, 200) } : {}),
+          ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi.trim().slice(0, 5000) || "—" } : {}),
+          ...(patch.deadline !== undefined ? { deadline: akhirHari(patch.deadline) } : {}),
+          ...(patch.prioritas !== undefined ? { prioritas: patch.prioritas } : {}),
+          ...(patch.pertemuan !== undefined ? { pertemuan: patch.pertemuan } : {}),
+        };
+        const baru = { ...target, ...patchBersih };
+        setTugas((p) => p.map((t) => (t.id === id ? baru : t)));
+        syncKeCloud("tugas", baru);
         if (target) catat("resmi", `mengubah “${target.judul}”`, saya.nama);
       },
       toggleSelesai: (id) => {
         if (!user) return;
         const target = tugas.find((t) => t.id === id);
-        const akanSelesai = target ? !(target.selesaiOleh ?? []).includes(user.id) : false;
-        setTugas((p) =>
-          p.map((t) => {
-            if (t.id !== id) return t;
-            const sudah = (t.selesaiOleh ?? []).includes(user.id);
-            return {
-              ...t,
-              selesaiOleh: sudah
-                ? (t.selesaiOleh ?? []).filter((x) => x !== user.id)
-                : [...(t.selesaiOleh ?? []), user.id],
-            };
-          })
-        );
-        if (akanSelesai && target) catat("selesai", `menyelesaikan “${target.judul}”`, user.nama);
+        if (!target) return;
+        const akanSelesai = !(target.selesaiOleh ?? []).includes(user.id);
+        const baru: Tugas = {
+          ...target,
+          selesaiOleh: (target.selesaiOleh ?? []).includes(user.id)
+            ? (target.selesaiOleh ?? []).filter((x) => x !== user.id)
+            : [...(target.selesaiOleh ?? []), user.id],
+        };
+        setTugas((p) => p.map((t) => (t.id === id ? baru : t)));
+        syncKeCloud("tugas", baru);
+        if (akanSelesai) catat("selesai", `menyelesaikan “${target.judul}”`, user.nama);
       },
       toggleSubtask: (tugasId, idx) => {
         if (!user) return;
         const saya = user.id;
-        setTugas((p) =>
-          p.map((t) =>
-            t.id === tugasId
-              ? {
-                  ...t,
-                  subtask: t.subtask.map((s, i) => {
-                    if (i !== idx) return s;
-                    const daftar = s.doneOleh ?? [];
-                    const sudah = daftar.includes(saya);
-                    return {
-                      ...s,
-                      doneOleh: sudah ? daftar.filter((x) => x !== saya) : [...daftar, saya],
-                    };
-                  }),
-                }
-              : t
-          )
-        );
+        const target = tugas.find((t) => t.id === tugasId);
+        if (!target) return;
+        const baru: Tugas = {
+          ...target,
+          subtask: target.subtask.map((s, i) => {
+            if (i !== idx) return s;
+            const daftar = s.doneOleh ?? [];
+            const sudah = daftar.includes(saya);
+            return {
+              ...s,
+              doneOleh: sudah ? daftar.filter((x) => x !== saya) : [...daftar, saya],
+            };
+          }),
+        };
+        setTugas((p) => p.map((t) => (t.id === tugasId ? baru : t)));
+        syncKeCloud("tugas", baru);
       },
       matkulById: (id) => matkul.find((m) => m.id === id),
     }),
-    [user, users, matkul, tugas, catatan, tautan, aktivitas]
+    // muatUlangCloud stabil via ref; mode/cloudSiap memicu render ulang bila berubah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, users, matkul, tugas, catatan, tautan, aktivitas, mode, cloudSiap]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
