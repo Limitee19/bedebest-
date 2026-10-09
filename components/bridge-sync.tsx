@@ -6,18 +6,35 @@ import { useStore } from "@/lib/store";
 declare global {
   interface Window {
     BeDeBestSync?: { postMessage: (msg: string) => void };
+    BeDeBestBuka?: { postMessage: (msg: string) => void };
   }
 }
 
-/**
- * Jembatan Web → App Flutter (WebView).
- * Tiap store berubah, kirim snapshot ringkas {user, matkul, tugas}
- * ke channel `BeDeBestSync`. App pakai ini untuk widget + notif 30 mnt.
- * Di browser biasa channel tidak ada → diam saja (no-op).
- */
 export function BridgeSync() {
   const { user, matkul, tugas } = useStore();
   const terakhir = useRef(0);
+
+  useEffect(() => {
+    function teruskan(e: MouseEvent) {
+      try {
+        const ch = window.BeDeBestBuka;
+        if (!ch) return;
+        const el = (e.target as HTMLElement | null)?.closest?.("a");
+        if (!el) return;
+        const href = el.getAttribute("href") ?? "";
+        if (!/^https?:\/\//i.test(href)) return;
+        const u = new URL(href, window.location.href);
+        if (u.host === window.location.host) return;
+        e.preventDefault();
+        e.stopPropagation();
+        ch.postMessage(u.toString());
+      } catch {
+        /* abaikan */
+      }
+    }
+    document.addEventListener("click", teruskan, true);
+    return () => document.removeEventListener("click", teruskan, true);
+  }, []);
 
   useEffect(() => {
     try {

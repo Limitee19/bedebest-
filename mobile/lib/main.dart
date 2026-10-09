@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'cermin.dart';
 import 'notif.dart';
@@ -124,6 +125,18 @@ class _CerminWebState extends State<CerminWeb> {
   late final WebViewController ctl;
   bool muat = true;
   String? galat;
+  static final _webHost = Uri.parse(webAwal).host;
+
+  bool _diDalam(Uri u) {
+    if (u.scheme != 'http' && u.scheme != 'https') return false;
+    return u.host == _webHost;
+  }
+
+  Future<void> _bukaLuar(Uri u) async {
+    try {
+      await launchUrl(u, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -131,6 +144,18 @@ class _CerminWebState extends State<CerminWeb> {
     ctl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFFFFF6E8))
+      ..addJavaScriptChannel(
+        'BeDeBestBuka',
+        onMessageReceived: (m) async {
+          final u = Uri.tryParse(m.message);
+          if (u == null) return;
+          if (_diDalam(u)) {
+            ctl.loadRequest(u);
+            return;
+          }
+          await _bukaLuar(u);
+        },
+      )
       ..addJavaScriptChannel(
         'BeDeBestSync',
         onMessageReceived: (m) async {
@@ -140,6 +165,13 @@ class _CerminWebState extends State<CerminWeb> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (req) {
+            final u = Uri.tryParse(req.url);
+            if (u == null) return NavigationDecision.prevent;
+            if (_diDalam(u)) return NavigationDecision.navigate;
+            _bukaLuar(u);
+            return NavigationDecision.prevent;
+          },
           onPageFinished: (_) {
             if (mounted) setState(() => muat = false);
           },
