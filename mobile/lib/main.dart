@@ -33,8 +33,9 @@ Future<void> main() async {
   if (Platform.isAndroid) {
     try {
       await AndroidAlarmManager.initialize();
+      // 15 menit agar hitung mundur "X menit lagi" tidak kedaluwarsa.
       await AndroidAlarmManager.periodic(
-        const Duration(minutes: 30),
+        const Duration(minutes: 15),
         7,
         alarmHarian,
         wakeup: true,

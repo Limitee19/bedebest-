@@ -34,17 +34,18 @@ export function BridgeSync() {
         matkul: matkul.map((m) => ({
           id: m.id,
           nama: m.nama,
+          dosen: m.dosen ?? [],
           jadwal: m.jadwal,
-          pjIds: m.pjIds ?? [],
-          anggotaIds: m.anggotaIds ?? [],
+          pj_ids: m.pjIds ?? [],
+          anggota_ids: m.anggotaIds ?? [],
         })),
         tugas: tugas.slice(0, 500).map((t) => ({
           id: t.id,
-          matkulId: t.matkulId,
+          matkul_id: t.matkulId,
           judul: t.judul,
-          deadline: t.deadline,
+          deadline_at: t.deadline,
           status: t.status,
-          selesaiOleh: t.selesaiOleh ?? [],
+          selesai_oleh: t.selesaiOleh ?? [],
           arsip: !!t.arsip,
         })),
       });
