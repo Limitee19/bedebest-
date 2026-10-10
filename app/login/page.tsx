@@ -84,7 +84,7 @@ export default function LoginPage() {
             Masuk dulu, yuk!
           </p>
           <p className="mt-1 text-[15px] text-(--color-soft)">
-            Pilih namamu, lalu isi NIM sebagai kata sandi.
+            Pilih namamu, lalu isi kata sandimu.
           </p>
           <form onSubmit={submit} className="mt-5 flex flex-col gap-3.5">
             <label className="text-[15px] font-extrabold">
@@ -108,17 +108,17 @@ export default function LoginPage() {
               </datalist>
             </label>
             <label className="text-[15px] font-extrabold">
-              NIM (kata sandi)
+              Kata sandi
               <span className="field mt-1.5 flex items-center gap-2 px-4 py-3">
                 <KeyRound size={17} className="shrink-0 text-(--color-faint)" />
                 <input
                   value={nim}
                   onChange={(e) => setNim(e.target.value)}
                   type="password"
-                  inputMode="numeric"
+                  autoComplete="current-password"
                   required
                   className="w-full bg-transparent text-[15px] font-semibold outline-none"
-                  placeholder="cth. 2602426xxxxx"
+                  placeholder="Awalnya NIM, ketik sandimu"
                 />
               </span>
             </label>

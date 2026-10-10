@@ -389,7 +389,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           (u) => u.nama.toLowerCase() === kunci && u.password === nim.trim()
         );
         if (!found)
-          return "Nama atau kata sandi salah. Pilih namamu dari daftar, kata sandinya NIM kamu (atau sandi barumu bila sudah diganti).";
+          return "Nama atau kata sandi salah. Pilih namamu dari daftar, lalu isi kata sandimu.";
         setUser(found);
         return null;
       },
