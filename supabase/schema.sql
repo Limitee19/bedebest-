@@ -136,6 +136,9 @@ alter table public.tugas add column if not exists dibuat_oleh_id text;
 alter table public.tugas add column if not exists subtask jsonb not null default '[]';
 alter table public.catatan_tugas add column if not exists oleh_id text;
 alter table public.tautan add column if not exists oleh_id text;
+-- Materi virtual: 1 link Drive = 1 folder/pertemuan. File tetap di Drive.
+alter table public.tautan add column if not exists pertemuan int check (pertemuan is null or (pertemuan between 1 and 16));
+alter table public.matkul add column if not exists drive_url text;
 
 -- Tipe aktivitas baru "tautan": longgarkan check lama bila tabel sudah ada.
 do $$

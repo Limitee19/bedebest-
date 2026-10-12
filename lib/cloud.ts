@@ -80,6 +80,7 @@ function mapMatkul(r: Row): Matkul {
     anggotaIds: aStr(r.anggota_ids),
     warna: s(r.warna, "#3f8fd1"),
     kontrak: s(r.kontrak),
+    driveUrl: s(r.drive_url) || undefined,
   };
 }
 
@@ -142,6 +143,7 @@ function mapTautan(r: Row): Tautan {
     url: s(r.url),
     kategori: kat === "kumpul" || kat === "materi" || kat === "data" ? kat : "lainnya",
     deskripsi: s(r.deskripsi),
+    pertemuan: num(r.pertemuan),
     oleh: s(r.oleh),
     olehId: s(r.oleh_id) || undefined,
     createdAt: s(r.created_at, new Date().toISOString()),
@@ -297,6 +299,7 @@ export const keRowMatkul = (m: Matkul): Row => ({
   anggota_ids: m.anggotaIds ?? [],
   warna: m.warna,
   kontrak: m.kontrak,
+  drive_url: m.driveUrl ?? null,
 });
 
 export const keRowTugas = (t: Tugas): Row => ({
@@ -335,6 +338,7 @@ export const keRowTautan = (t: Tautan): Row => ({
   url: t.url,
   kategori: t.kategori,
   deskripsi: t.deskripsi,
+  pertemuan: t.pertemuan ?? null,
   oleh: t.oleh,
   oleh_id: t.olehId ?? null,
 });

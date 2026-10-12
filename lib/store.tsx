@@ -80,6 +80,7 @@ interface Store {
     url: string;
     kategori: KategoriTautan;
     deskripsi: string;
+    pertemuan?: number;
   }) => string | null;
   /** Hapus tautan (pembuatnya, admin, atau PJ matkul tsb). */
   hapusTautan: (id: string) => void;
@@ -613,6 +614,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!judul) return "Judul wajib diisi.";
         const bersih = urlAman(input.url);
         if (!bersih) return "Link tidak valid. Pakai http(s), mis. https://docs.google.com/…";
+        const p = input.pertemuan;
+        const pertemuan =
+          p === undefined ? undefined : Number.isInteger(p) && p >= 1 && p <= 16 ? p : undefined;
         const entri: Tautan = {
           id: `l-${Date.now()}`,
           matkulId: input.matkulId,
@@ -620,6 +624,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           url: bersih,
           kategori: input.kategori,
           deskripsi: input.deskripsi.trim().slice(0, 500),
+          pertemuan,
           oleh: user.nama,
           olehId: user.id,
           createdAt: new Date().toISOString(),

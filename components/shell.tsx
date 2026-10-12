@@ -8,6 +8,7 @@ import {
   BookOpenText,
   CalendarDays,
   ClipboardList,
+  FolderOpen,
   History,
   LayoutDashboard,
   Link2,
@@ -25,6 +26,7 @@ import { Bell, usePengingat } from "./bell";
 const NAV = [
   { href: "/", label: "Dasbor", icon: LayoutDashboard, dot: "bg-(--color-apel)" },
   { href: "/matkul", label: "Matkul", icon: BookOpenText, dot: "bg-(--color-sky)" },
+  { href: "/materi", label: "Materi", icon: FolderOpen, dot: "bg-(--color-lemon)" },
   { href: "/tugas", label: "Tugas", icon: ClipboardList, dot: "bg-(--color-lemon)" },
   { href: "/tautan", label: "Tautan", icon: Link2, dot: "bg-(--color-daun)" },
   { href: "/kalender", label: "Kalender", icon: CalendarDays, dot: "bg-(--color-mint)" },

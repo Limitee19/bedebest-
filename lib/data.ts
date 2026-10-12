@@ -36,6 +36,8 @@ export interface Matkul {
   anggotaIds: string[];
   warna: string;
   kontrak: string;
+  /** Link folder Drive utama matkul (opsional). File tetap di Drive, app cuma embed. */
+  driveUrl?: string;
 }
 
 export interface Tugas {
@@ -82,6 +84,8 @@ export interface Tautan {
   url: string;
   kategori: KategoriTautan;
   deskripsi: string;
+  /** Pertemuan virtual 1-16 (khusus kategori materi). Undefined = tanpa label. */
+  pertemuan?: number;
   oleh: string;
   olehId?: string;
   createdAt: string;
@@ -115,6 +119,74 @@ export function domainDari(url: string) {
   } catch {
     return "";
   }
+}
+
+/** Hasil urai link Drive: file, folder, atau dokumen (Docs/Sheets/Slides). */
+export type DriveInfo =
+  | { jenis: "file"; id: string }
+  | { jenis: "folder"; id: string }
+  | { jenis: "dokumen"; id: string; app: "document" | "spreadsheets" | "presentation" }
+  | { jenis: "bukan" };
+
+/** Urai ID dari berbagai format link Drive/Docs agar bisa di-embed preview. */
+export function driveInfoDari(url: string): DriveInfo {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return { jenis: "bukan" };
+  }
+  const host = u.hostname.replace(/^www\./, "");
+  const path = u.pathname;
+  const idDariParam = u.searchParams.get("id") ?? "";
+  const segar = (s: string) => /^[A-Za-z0-9_-]{10,}$/.test(s);
+  if (host === "drive.google.com") {
+    const mFile = /\/(?:file|open)\/d\/([A-Za-z0-9_-]{10,})/.exec(path);
+    if (mFile) return { jenis: "file", id: mFile[1] };
+    if (path.startsWith("/embeddedfolderview") && segar(idDariParam))
+      return { jenis: "folder", id: idDariParam };
+    if (path.startsWith("/drive/folders/")) {
+      const id = path.split("/").filter(Boolean).pop() ?? "";
+      if (segar(id)) return { jenis: "folder", id };
+    }
+    if (segar(idDariParam)) {
+      if (path.startsWith("/open") || path.startsWith("/uc") || path.startsWith("/file"))
+        return { jenis: "file", id: idDariParam };
+      return { jenis: "folder", id: idDariParam };
+    }
+  }
+  if (host === "docs.google.com" || host === "sheets.google.com" || host === "slides.google.com") {
+    const app =
+      path.startsWith("/spreadsheets") || host === "sheets.google.com"
+        ? ("spreadsheets" as const)
+        : path.startsWith("/presentation") || host === "slides.google.com"
+          ? ("presentation" as const)
+          : ("document" as const);
+    const m = /\/(?:document|spreadsheets|presentation)\/d\/([A-Za-z0-9_-]{10,})/.exec(path);
+    if (m) return { jenis: "dokumen", id: m[1], app };
+  }
+  return { jenis: "bukan" };
+}
+
+/** URL embed preview Drive. File tetap di Drive, app cuma menampilkannya. */
+export function driveEmbedDari(info: DriveInfo): string | null {
+  if (info.jenis === "file") return `https://drive.google.com/file/d/${info.id}/preview`;
+  if (info.jenis === "folder") return `https://drive.google.com/embeddedfolderview?id=${info.id}#list`;
+  if (info.jenis === "dokumen") {
+    const seg =
+      info.app === "spreadsheets"
+        ? "spreadsheets"
+        : info.app === "presentation"
+          ? "presentation"
+          : "document";
+    return `https://docs.google.com/${seg}/d/${info.id}/preview`;
+  }
+  return null;
+}
+
+/** Apakah URL ini bisa di-preview di dalam app? */
+export function bisaPreviewDrive(url: string) {
+  return driveEmbedDari(driveInfoDari(url)) !== null;
 }
 
 export type TipeAktivitas =

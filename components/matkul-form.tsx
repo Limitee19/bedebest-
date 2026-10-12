@@ -16,6 +16,7 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
   const [sks, setSks] = useState(m?.sks ?? 2);
   const [kelompok, setKelompok] = useState(m?.kelompok ?? "B – B");
   const [kontrak, setKontrak] = useState(m?.kontrak ?? "");
+  const [driveUrl, setDriveUrl] = useState(m?.driveUrl ?? "");
   const [jadwal, setJadwal] = useState<Jadwal[]>(
     m?.jadwal?.length ? m.jadwal.map((j) => ({ ...j })) : [{ hari: "Senin", jam: "", ruang: "" }]
   );
@@ -30,6 +31,7 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
   function simpan(e: React.FormEvent) {
     e.preventDefault();
     if (!nama.trim() || !kode.trim()) return;
+    const drive = driveUrl.trim();
     updateMatkul(idMk, {
       nama: nama.trim(),
       kode: kode.trim().toUpperCase(),
@@ -37,6 +39,7 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
       sks: Math.max(1, Math.min(12, sks || 2)),
       kelompok: kelompok.trim() || "B – B",
       kontrak: kontrak.trim(),
+      driveUrl: drive.slice(0, 2000),
       jadwal: jadwal.filter((j) => j.hari && (j.jam || j.ruang)),
     });
     onTutup();
@@ -62,6 +65,7 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
           <input value={sks} onChange={(e) => setSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field px-4 py-2.5 text-[15px] outline-none" />
           <input value={dosen} onChange={(e) => setDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
           <input value={kelompok} onChange={(e) => setKelompok(e.target.value)} placeholder="Kelompok, mis. B – B" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
+          <input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="Link folder Drive matkul (opsional)" inputMode="url" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
         </div>
 
         <p className="mt-3 text-[13px] font-extrabold uppercase tracking-widest text-(--color-faint)">
