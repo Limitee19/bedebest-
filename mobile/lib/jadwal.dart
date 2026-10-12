@@ -2,8 +2,8 @@ import 'package:intl/intl.dart';
 
 const hariId = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
-String namaHariIni() {
-  final en = DateFormat('EEEE', 'en_US').format(DateTime.now());
+String namaHari(DateTime d) {
+  final en = DateFormat('EEEE', 'en_US').format(d);
   const map = {
     'Monday': 'Senin',
     'Tuesday': 'Selasa',
@@ -15,6 +15,8 @@ String namaHariIni() {
   };
   return map[en] ?? en;
 }
+
+String namaHariIni() => namaHari(DateTime.now());
 
 String fmtJam(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -85,7 +87,7 @@ List<SesiKelas> sesiHariIniDetail(
   DateTime? sekarang,
 }) {
   final now = sekarang ?? DateTime.now();
-  final hari = namaHariIni().toLowerCase();
+  final hari = namaHari(now).toLowerCase();
   final out = <SesiKelas>[];
   for (final mentah in matkul) {
     final m = _sebagaiMap(mentah);
@@ -129,12 +131,13 @@ class Fokus {
 
 Fokus fokusHariIni(List<SesiKelas> sesi, {DateTime? sekarang}) {
   final now = sekarang ?? DateTime.now();
+  final hari = namaHari(now);
   if (sesi.isEmpty) {
     return Fokus(
       'LIBUR',
       'Tidak ada kelas',
       'Hari ini tidak ada jadwal. Rebahan yang rajin ya.',
-      namaHariIni(),
+      hari,
     );
   }
   final kelar = sesi.where((s) => now.isAfter(s.selesai)).length;
@@ -143,7 +146,7 @@ Fokus fokusHariIni(List<SesiKelas> sesi, {DateTime? sekarang}) {
     return Fokus(
       'KELAR',
       '$n matkul sudah kelar hari ini',
-      'Semua kelas ${namaHariIni()} selesai. Kerja bagus!',
+      'Semua kelas $hari selesai. Kerja bagus!',
       sesi.map((s) => s.matkul).take(2).join(' · '),
     );
   }
@@ -176,7 +179,7 @@ Fokus fokusHariIni(List<SesiKelas> sesi, {DateTime? sekarang}) {
   }
   final n = sesi.length;
   return Fokus('KELAR', '$n matkul sudah kelar hari ini',
-      'Semua kelas selesai.', namaHariIni());
+      'Semua kelas selesai.', hari);
 }
 
 // ---- Kompat lama (dipakai test + fallback) ----

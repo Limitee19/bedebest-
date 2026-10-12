@@ -16,8 +16,16 @@ const String webAwal = String.fromEnvironment(
 
 @pragma('vm:entry-point')
 Future<void> alarmHarian() async {
-  await initSupa();
-  await cekHarian();
+  // Ringan dulu (lokal, pasti jalan) baru penuh (Cermin/Supabase).
+  try {
+    await segarkanWidgetRingan();
+  } catch (_) {}
+  try {
+    await initSupa();
+  } catch (_) {}
+  try {
+    await cekHarian();
+  } catch (_) {}
 }
 
 Future<void> main() async {
@@ -34,14 +42,20 @@ Future<void> main() async {
   if (Platform.isAndroid) {
     try {
       await AndroidAlarmManager.initialize();
-      // 15 menit agar hitung mundur "X menit lagi" tidak kedaluwarsa.
+      // Periodik 15 mnt (batas Android) + tepi/tick di dalam cekHarian
+      // agar status flip tepat waktu tanpa buka app.
       await AndroidAlarmManager.periodic(
         const Duration(minutes: 15),
-        7,
+        alarmPeriodikId,
         alarmHarian,
         wakeup: true,
         rescheduleOnReboot: true,
+        allowWhileIdle: true,
       );
+      // Segarkan sekali saat app dibuka agar tick terbaru terjadwal.
+      try {
+        await cekHarian();
+      } catch (_) {}
     } catch (_) {}
   }
   ErrorWidget.builder = (d) => Scaffold(

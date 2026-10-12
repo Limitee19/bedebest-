@@ -6,16 +6,22 @@ const String supaUrl = String.fromEnvironment(
 );
 const String supaAnon = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
-  defaultValue: '',
+  defaultValue: 'sb_publishable_jUOvJ_8kVMCUO56Emx8Ecg_5T6yBRXQ',
 );
 
 bool supaReady = false;
 
 Future<void> initSupa() async {
   if (supaReady) return;
-  // ignore: deprecated_member_use
-  await Supabase.initialize(url: supaUrl, anonKey: supaAnon);
-  supaReady = true;
+  try {
+    // ignore: deprecated_member_use
+    await Supabase.initialize(url: supaUrl, anonKey: supaAnon);
+    supaReady = true;
+  } catch (_) {
+    // Background isolate: jangan lempar — biar fallback Cermin tetap jalan.
+    supaReady = false;
+    rethrow;
+  }
 }
 
 SupabaseClient get sb => Supabase.instance.client;
