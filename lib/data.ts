@@ -189,6 +189,14 @@ export function bisaPreviewDrive(url: string) {
   return driveEmbedDari(driveInfoDari(url)) !== null;
 }
 
+/** "Pertemuan 2 - Pakaian" → 2. Untuk browser isi folder root otomatis. */
+export function nomorPertemuan(nama: string): number | null {
+  const m = /pertemuan\s*(\d{1,2})/i.exec(nama);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return n >= 1 && n <= 16 ? n : null;
+}
+
 export type TipeAktivitas =
   | "catatan"
   | "usulan"

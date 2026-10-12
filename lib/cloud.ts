@@ -271,8 +271,24 @@ export async function cloudAmbilUser(): Promise<User | null> {
 type Tbl = "matkul" | "tugas" | "catatan_tugas" | "tautan" | "aktivitas" | "profiles";
 
 export async function cloudUpsert(tbl: Tbl, row: Row) {
+  const sb = supabase();
+  if (!sb) return;
   try {
-    await supabase()?.from(tbl).upsert(row, { onConflict: "id" });
+    const { error } = await sb.from(tbl).upsert(row, { onConflict: "id" });
+    if (!error) return;
+    // DB lama belum punya kolom baru (drive_url/pertemuan) → coba lagi tanpa kolom itu
+    // agar update lain tetap tersimpan, bukan gagal total.
+    const msg = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`;
+    if (/drive_url|pertemuan/i.test(msg)) {
+      const salin = { ...row };
+      delete salin.drive_url;
+      delete salin.pertemuan;
+      try {
+        await sb.from(tbl).upsert(salin, { onConflict: "id" });
+      } catch {
+        /* abaikan */
+      }
+    }
   } catch {
     /* offline — data lokal tetap tersimpan */
   }

@@ -7,8 +7,9 @@ import { HARI_ORDER, type Jadwal } from "@/lib/data";
 
 /** Ubah info matkul + kontrak + jadwal. Hanya dipanggil bila bolehSimpulkan. */
 export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTutup: () => void }) {
-  const { matkulById, updateMatkul } = useStore();
+  const { matkulById, updateMatkul, user } = useStore();
   const m = matkulById(matkulId);
+  const adminSaja = user?.role === "admin";
 
   const [nama, setNama] = useState(m?.nama ?? "");
   const [kode, setKode] = useState(m?.kode ?? "");
@@ -39,7 +40,8 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
       sks: Math.max(1, Math.min(12, sks || 2)),
       kelompok: kelompok.trim() || "B – B",
       kontrak: kontrak.trim(),
-      driveUrl: drive.slice(0, 2000),
+      // driveUrl hanya ikut terkirim bila admin — PJ/member tak bisa timpa.
+      ...(adminSaja ? { driveUrl: drive.slice(0, 2000) } : {}),
       jadwal: jadwal.filter((j) => j.hari && (j.jam || j.ruang)),
     });
     onTutup();
@@ -65,7 +67,9 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
           <input value={sks} onChange={(e) => setSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field px-4 py-2.5 text-[15px] outline-none" />
           <input value={dosen} onChange={(e) => setDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
           <input value={kelompok} onChange={(e) => setKelompok(e.target.value)} placeholder="Kelompok, mis. B – B" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
-          <input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="Link folder Drive matkul (opsional)" inputMode="url" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
+          {adminSaja && (
+            <input value={driveUrl} onChange={(e) => setDriveUrl(e.target.value)} placeholder="Link folder Drive matkul — khusus admin" inputMode="url" className="field px-4 py-2.5 text-[15px] outline-none md:col-span-2" />
+          )}
         </div>
 
         <p className="mt-3 text-[13px] font-extrabold uppercase tracking-widest text-(--color-faint)">

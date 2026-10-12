@@ -185,11 +185,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     aktivitas: Aktivitas[];
   }) {
     // Cloud = sumber kebenaran bila ada datanya; seed lokal hanya fallback awal.
+    // Gabung driveUrl/pertemuan lokal bila cloud belum punya kolomnya
+    // (DB lama sebelum schema.sql baru) agar tidak flicker hilang.
     setUsers(d.users.length ? d.users : seedUsers());
-    setMatkul(d.matkul.length ? d.matkul : seedMatkul);
+    setMatkul((prev) => {
+      const awan = d.matkul.length ? d.matkul : seedMatkul;
+      const lokal = new Map(prev.map((m) => [m.id, m.driveUrl]));
+      return awan.map((m) =>
+        m.driveUrl ? m : lokal.get(m.id) ? { ...m, driveUrl: lokal.get(m.id) } : m
+      );
+    });
     setTugas(d.tugas);
     setCatatan(d.catatan);
-    setTautan(d.tautan);
+    setTautan((prev) => {
+      const lokal = new Map(prev.map((t) => [t.id, t.pertemuan]));
+      return d.tautan.map((t) =>
+        t.pertemuan !== undefined
+          ? t
+          : lokal.get(t.id) !== undefined
+            ? { ...t, pertemuan: lokal.get(t.id) }
+            : t
+      );
+    });
     setAktivitas(d.aktivitas);
   }
 
@@ -454,6 +471,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       updateMatkul: (id, m) => {
         const target = matkul.find((x) => x.id === id);
+        const saya = user;
+        // driveUrl hanya admin yang boleh ubah — cegah timpa liar dari sesi lain.
+        if (m.driveUrl !== undefined && saya?.role !== "admin") return;
         if (!target) return;
         const baru = { ...target, ...m };
         setMatkul((p) => p.map((x) => (x.id === id ? baru : x)));
