@@ -60,6 +60,13 @@
   --input-bg: #1c1628;
 }
 
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;

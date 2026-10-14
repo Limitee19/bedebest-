@@ -363,15 +363,17 @@ export default function MatkulDetail() {
 }
 
 function SeksiTautan({ matkulId }: { matkulId: string }) {
-  const { user, matkul, tautan, addTautan, hapusTautan } = useStore();
+  const { user, matkul, tautan, addTautan, updateTautan, hapusTautan, notify } = useStore();
   const [buka, setBuka] = useState(false);
   const [batas, setBatas] = useState(4);
   const [judul, setJudul] = useState("");
   const [url, setUrl] = useState("");
   const [kat, setKat] = useState<KategoriTautan>("kumpul");
   const [desk, setDesk] = useState("");
+  const [gambar, setGambar] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [tanyaId, setTanyaId] = useState<string | null>(null);
+  const [ubahId, setUbahId] = useState<string | null>(null);
 
   const daftar = tautan.filter((t) => t.matkulId === matkulId);
   const tampil = daftar.slice(0, batas);
@@ -379,7 +381,7 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
 
   function kirim(e: React.FormEvent) {
     e.preventDefault();
-    const gagal = addTautan({ matkulId, judul, url, kategori: kat, deskripsi: desk });
+    const gagal = addTautan({ matkulId, judul, url, kategori: kat, deskripsi: desk, gambarUrl: gambar.trim() || undefined });
     if (gagal) {
       setErr(gagal);
       return;
@@ -387,16 +389,49 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
     setJudul("");
     setUrl("");
     setDesk("");
+    setGambar("");
     setErr(null);
     setBuka(false);
+    notify("Tautan tersimpan.");
   }
 
-  function bolehHapus(t: import("@/lib/data").Tautan) {
+  function kirimUbah(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ubahId) return;
+    const gagal = updateTautan(ubahId, {
+      judul,
+      url,
+      kategori: kat,
+      deskripsi: desk,
+      gambarUrl: gambar.trim() ? gambar.trim() : null,
+    });
+    if (gagal) {
+      setErr(gagal);
+      return;
+    }
+    setUbahId(null);
+    setErr(null);
+    notify("Tautan diperbarui.");
+  }
+
+  function bukaUbah(t: import("@/lib/data").Tautan) {
+    setJudul(t.judul);
+    setUrl(t.url);
+    setKat(t.kategori);
+    setDesk(t.deskripsi);
+    setGambar(t.gambarUrl ?? "");
+    setErr(null);
+    setUbahId(t.id);
+  }
+
+  function hak(t: import("@/lib/data").Tautan) {
     if (!user) return false;
     if (t.olehId ? t.olehId === user.id : t.oleh === user.nama) return true;
     if (user.role === "admin") return true;
     return matkul.some((mm) => mm.id === matkulId && (mm.pjIds ?? []).includes(user.id));
   }
+
+
 
   return (
     <section>
@@ -418,7 +453,12 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
       <div className="flex flex-col gap-2.5">
         {tampil.map((t) => (
           <div key={t.id} className="paper-card flex items-start gap-2.5 !rounded-2xl p-4">
-            <Link2 size={17} className="mt-0.5 shrink-0 text-(--color-daun)" />
+            {t.gambarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={t.gambarUrl} alt="" className="h-10 w-10 shrink-0 rounded-xl border-2 border-(--color-line) object-cover" />
+            ) : (
+              <Link2 size={17} className="mt-0.5 shrink-0 text-(--color-daun)" />
+            )}
             <div className="min-w-0 flex-1">
               <span className="rounded-full bg-(--color-daun-soft) px-2.5 py-0.5 text-[11px] font-extrabold text-(--color-daun)">
                 {LABEL_KATEGORI[t.kategori]} · {domainDari(t.url)}
@@ -437,14 +477,23 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
                 oleh {t.oleh}
               </p>
             </div>
-            {bolehHapus(t) && (
-              <button
-                onClick={() => setTanyaId(t.id)}
-                title="Hapus tautan"
-                className="shrink-0 rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
-              >
-                <Trash2 size={15} />
-              </button>
+            {hak(t) && (
+              <span className="flex shrink-0 gap-1.5">
+                <button
+                  onClick={() => bukaUbah(t)}
+                  title="Ubah tautan"
+                  className="rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-lemon-soft)"
+                >
+                  <PencilLine size={15} />
+                </button>
+                <button
+                  onClick={() => setTanyaId(t.id)}
+                  title="Hapus tautan"
+                  className="rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </span>
             )}
           </div>
         ))}
@@ -467,7 +516,7 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
           <form
             onSubmit={kirim}
             onClick={(e) => e.stopPropagation()}
-            className="paper-card my-8 w-full max-w-md !rounded-3xl p-5 md:p-6"
+            className="paper-card m-auto w-full max-w-md !rounded-3xl p-5 md:p-6"
           >
             <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
               <Plus size={20} /> Tambah tautan
@@ -503,6 +552,13 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
                 maxLength={500}
               />
             </div>
+            <input
+              value={gambar}
+              onChange={(e) => setGambar(e.target.value)}
+              placeholder="Link gambar/cover (opsional)"
+              inputMode="url"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+            />
             {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <button
@@ -522,6 +578,73 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
           </form>
         </div>
       )}
+      {ubahId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/45 p-4" onClick={() => setUbahId(null)}>
+          <form
+            onSubmit={kirimUbah}
+            onClick={(e) => e.stopPropagation()}
+            className="paper-card m-auto w-full max-w-md !rounded-3xl p-5 md:p-6"
+          >
+            <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
+              <PencilLine size={20} /> Ubah tautan
+            </h3>
+            <input
+              value={judul}
+              onChange={(e) => setJudul(e.target.value)}
+              placeholder="Judul"
+              className="field mt-3 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+              maxLength={120}
+            />
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://…"
+              inputMode="url"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <select value={kat} onChange={(e) => setKat(e.target.value as KategoriTautan)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+                <option value="kumpul">Link kumpul</option>
+                <option value="materi">Materi</option>
+                <option value="data">Data kelas</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+              <input
+                value={desk}
+                onChange={(e) => setDesk(e.target.value)}
+                placeholder="Keterangan (opsional)"
+                className="field px-4 py-2.5 text-[15px] outline-none"
+                maxLength={500}
+              />
+            </div>
+            <input
+              value={gambar}
+              onChange={(e) => setGambar(e.target.value)}
+              placeholder="Link gambar/cover (kosongkan = ikon)"
+              inputMode="url"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+            />
+            {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUbahId(null)}
+                className="rounded-full border-2 border-(--color-line) px-4 py-2.5 text-[14px] font-extrabold text-(--color-soft) hover:bg-(--color-cream)"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[14px] font-extrabold text-[#fff6e8] dark:text-[#181222]"
+              >
+                Simpan perubahan
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       <ConfirmModal
         open={tanyaId !== null}
         bahaya
@@ -531,7 +654,10 @@ function SeksiTautan({ matkulId }: { matkulId: string }) {
         yaLabel="Ya, hapus"
         onBatal={() => setTanyaId(null)}
         onYa={() => {
-          if (tanyaId) hapusTautan(tanyaId);
+          if (tanyaId) {
+            hapusTautan(tanyaId);
+            notify("Tautan dihapus.", "gagal");
+          }
           setTanyaId(null);
         }}
       />

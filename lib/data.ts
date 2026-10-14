@@ -123,8 +123,10 @@ export type TipeOverride = "libur" | "pengganti" | "online" | "pindah";
 export interface JadwalOverride {
   id: string;
   matkulId: string;
-  /** yyyy-MM-dd */
+  /** yyyy-MM-dd — tanggal berlaku (pengganti muncul di sini) */
   tanggal: string;
+  /** Khusus pengganti: tanggal asal yang dipindah (opsional). Sesi normal di tanggal asal disembunyikan. */
+  asal?: string;
   tipe: TipeOverride;
   jam: string;
   ruang: string;
@@ -141,7 +143,8 @@ export const LABEL_OVERRIDE: Record<TipeOverride, string> = {
   pindah: "Pindah ruang/jam",
 };
 
-/** Sesi efektif pada satu tanggal: jadwal mingguan + override (libur sembunyikan). */
+/** Sesi efektif pada satu tanggal: jadwal mingguan + override.
+ * libur sembunyikan sesi; pengganti dengan `asal` memindah sesi dari tanggal asal. */
 export function sesiPadaTanggal(
   daftar: Matkul[],
   overrides: JadwalOverride[],
@@ -152,15 +155,21 @@ export function sesiPadaTanggal(
     `${tanggal.getFullYear()}-${String(tanggal.getMonth() + 1).padStart(2, "0")}-${String(tanggal.getDate()).padStart(2, "0")}`;
   const ovHari = overrides.filter((o) => o.tanggal === kunci);
   const libur = new Map<string, JadwalOverride>();
-  const info = new Map<string, JadwalOverride>();
   for (const o of ovHari) {
     if (o.tipe === "libur") libur.set(o.matkulId, o);
-    else info.set(`${o.matkulId}::${o.tipe}::${o.jam}::${o.ruang}`, o);
   }
+  // Pengganti yang dipindah DARI tanggal ini ke tanggal lain → sesi normal disembunyikan.
+  const pindahKeluar = overrides.filter((o) => o.tipe === "pengganti" && o.asal === kunci);
+  const pindahKeluarIds = new Set(pindahKeluar.map((o) => o.matkulId));
   const target = namaHari.toLowerCase().trim();
   const biasa = daftar.flatMap((m) =>
     m.jadwal
-      .filter((j) => j.hari.toLowerCase().trim() === target && !libur.has(m.id))
+      .filter(
+        (j) =>
+          j.hari.toLowerCase().trim() === target &&
+          !libur.has(m.id) &&
+          !pindahKeluarIds.has(m.id)
+      )
       .map((j) => {
         const ganti = ovHari.find(
           (o) => o.matkulId === m.id && (o.tipe === "online" || o.tipe === "pindah")
@@ -187,7 +196,10 @@ export function sesiPadaTanggal(
     }))
     .filter((x) => !!x.m && !libur.has(x.m!.id))
     .map((x) => ({ m: x.m!, j: x.j, ov: x.ov }));
-  return { kunci, biasa, tambahan, libur, ovHari };
+  const dipindah = pindahKeluar
+    .map((o) => ({ m: daftar.find((x) => x.id === o.matkulId), ov: o }))
+    .filter((x): x is { m: Matkul; ov: JadwalOverride } => !!x.m);
+  return { kunci, biasa, tambahan, libur, ovHari, dipindah };
 }
 
 /** Palet tema + picker bebas (dengan swatch cepat). */

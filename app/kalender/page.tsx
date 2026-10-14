@@ -63,10 +63,10 @@ export default function KalenderPage() {
   function infoSel(tgl: Date) {
     const k = kunci(tgl);
     const namaHari = NAMA_HARI_JS[tgl.getDay()];
-    const { biasa, tambahan, libur, ovHari } = sesiPadaTanggal(matkulSaya, overrides, tgl, namaHari);
+    const { biasa, tambahan, libur, ovHari, dipindah } = sesiPadaTanggal(matkulSaya, overrides, tgl, namaHari);
     const dl = tugasSaya.filter((t) => format(new Date(t.deadline), "yyyy-MM-dd") === k);
     const diLuar = !dalamSemester(k, semester);
-    return { k, kunci: k, biasa, tambahan, dl, libur, ovHari, diLuar, namaHari };
+    return { k, kunci: k, biasa, tambahan, dl, libur, ovHari, dipindah, diLuar, namaHari };
   }
 
   const pilihTgl = pilih ? new Date(`${pilih}T12:00:00`) : null;
@@ -134,7 +134,7 @@ export default function KalenderPage() {
           </div>
           <div className="grid grid-cols-7 gap-1">
             {selBulan.map((tgl) => {
-              const { k, biasa, tambahan, dl, libur, diLuar } = infoSel(tgl);
+              const { k, biasa, tambahan, dl, libur, dipindah, diLuar } = infoSel(tgl);
               const semua = [...biasa, ...tambahan];
               const lainBulan = tgl.getMonth() !== bulan.getMonth();
               const isHariIni = k === hariIni;
@@ -195,6 +195,11 @@ export default function KalenderPage() {
                             LIBUR
                           </span>
                         )}
+                        {dipindah.length > 0 && (
+                          <span className="truncate rounded-md bg-(--color-lemon-soft) px-1 py-0.5 text-center text-[9px] font-extrabold text-(--color-lemon)">
+                            PINDAH → {format(new Date(`${dipindah[0].ov.tanggal}T12:00:00`), "d MMM", { locale: id })}
+                          </span>
+                        )}
                       </>
                     )}
                   </span>
@@ -209,7 +214,7 @@ export default function KalenderPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {pekan.map((h) => {
-            const { k, biasa, tambahan, dl, libur, diLuar } = infoSel(h.tanggal);
+            const { k, biasa, tambahan, dl, libur, dipindah, diLuar } = infoSel(h.tanggal);
             const semua = [...biasa, ...tambahan];
             const isHariIni = k === hariIni;
             return (
@@ -249,6 +254,11 @@ export default function KalenderPage() {
                       </div>
                     );
                   })}
+                  {!diLuar && dipindah.map(({ m, ov }) => (
+                    <div key={ov.id} className="rounded-2xl border-2 border-dashed border-(--color-lemon) bg-(--color-lemon-soft) px-3 py-2 text-[13px] font-bold">
+                      {m.nama} dipindah → {format(new Date(`${ov.tanggal}T12:00:00`), "d MMM", { locale: id })}
+                    </div>
+                  ))}
                   {dl.map((t) => (
                     <div key={t.id} className="flex items-center gap-2 rounded-2xl bg-(--color-apel-soft) px-3 py-2 text-[14px]">
                       <span className="rounded-full bg-(--color-apel) px-2 py-0.5 text-[10px] font-extrabold text-white">KUMPUL</span>
@@ -295,7 +305,7 @@ function DrawerHari({
     diLuar: boolean;
   };
   onTutup: () => void;
-  simpanOverride: (i: { matkulId: string; tanggal: string; tipe: TipeOverride; jam?: string; ruang?: string; keterangan?: string }) => string | null;
+  simpanOverride: (i: { matkulId: string; tanggal: string; asal?: string; tipe: TipeOverride; jam?: string; ruang?: string; keterangan?: string }) => string | null;
   hapusOverride: (id: string) => void;
   bolehAturJadwal: (id: string) => boolean;
   notify: (t: string, j?: "ok" | "gagal") => void;
@@ -304,6 +314,8 @@ function DrawerHari({
   const [formBuka, setFormBuka] = useState(false);
   const [fMk, setFMk] = useState("");
   const [fTipe, setFTipe] = useState<TipeOverride>("libur");
+  const [fTgl, setFTgl] = useState("");
+  const [fAsal, setFAsal] = useState("");
   const [fJam, setFJam] = useState("");
   const [fRuang, setFRuang] = useState("");
   const [fKet, setFKet] = useState("");
@@ -311,7 +323,34 @@ function DrawerHari({
   const [tanyaId, setTanyaId] = useState<string | null>(null);
   const k = format(tanggal, "yyyy-MM-dd");
   const semua = [...info.biasa, ...info.tambahan];
+  // Bisa pilih SEMUA matkul yang berhak diatur (bukan cuma yang ada hari itu).
   const kandidat = matkul.filter((m) => matkulTerlihat(m, user) && bolehAturJadwal(m.id));
+  // Default: matkul yang ada pada hari yang diklik (biar Selasa langsung kepilih Seni+CC1).
+  const defaultIds = [...new Set(semua.map((s) => s.m.id))];
+
+  function bukaForm() {
+    setErr(null);
+    setFTgl(k);
+    setFAsal(fTipe === "pengganti" ? k : "");
+    // default ke matkul hari ini bila ada, kalau tidak ke kandidat pertama
+    const awal = defaultIds[0] ?? kandidat[0]?.id ?? "";
+    setFMk(awal);
+    // prefill jam/ruang dari sesi hari ini bila matkulnya ada di hari itu
+    const sesiAwal = semua.find((s) => s.m.id === awal);
+    setFJam(sesiAwal?.j.jam ?? "");
+    setFRuang(sesiAwal?.j.ruang ?? "");
+    setFormBuka(true);
+  }
+
+  function pilihMk(idMk: string) {
+    setFMk(idMk);
+    // ganti prefill mengikuti matkul yang dipilih
+    const sesi = semua.find((s) => s.m.id === idMk);
+    if (sesi) {
+      if (!fJam) setFJam(sesi.j.jam);
+      if (!fRuang) setFRuang(sesi.j.ruang);
+    }
+  }
 
   function kirim(e: React.FormEvent) {
     e.preventDefault();
@@ -319,9 +358,11 @@ function DrawerHari({
       setErr("Pilih matkul dulu.");
       return;
     }
+    const tglSimpan = fTgl || k;
     const gagal = simpanOverride({
       matkulId: fMk,
-      tanggal: k,
+      tanggal: tglSimpan,
+      ...(fTipe === "pengganti" && fAsal ? { asal: fAsal } : {}),
       tipe: fTipe,
       jam: fJam,
       ruang: fRuang,
@@ -332,18 +373,20 @@ function DrawerHari({
       return;
     }
     const nm = matkul.find((m) => m.id === fMk)?.nama ?? "Jadwal";
-    notify(`${LABEL_OVERRIDE[fTipe]} ${nm} ${format(tanggal, "d MMM", { locale: id })} tersimpan — semua perangkat ikut update.`);
+    const tglLabel = format(new Date(`${tglSimpan}T12:00:00`), "d MMM", { locale: id });
+    notify(`${LABEL_OVERRIDE[fTipe]} ${nm} ${tglLabel} tersimpan — semua perangkat ikut update.`);
     setFormBuka(false);
     setFJam("");
     setFRuang("");
     setFKet("");
+    setFAsal("");
     setErr(null);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/45 p-3 sm:p-4" onClick={onTutup}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center sm:p-4" onClick={onTutup}>
       <div
-        className="paper-card flex max-h-full w-full max-w-md flex-col !rounded-3xl p-5"
+        className="paper-card flex max-h-[92dvh] w-full max-w-md flex-col !rounded-3xl p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2">
@@ -404,7 +447,55 @@ function DrawerHari({
               </div>
             );
           })}
-          {!semua.length && !info.libur.size && (
+          {info.dipindah.map(({ m, ov }) => (
+            <div key={ov.id} className="rounded-2xl border-2 border-dashed border-(--color-lemon) bg-(--color-lemon-soft) p-3">
+              <p className="text-[14px] font-extrabold">
+                {m.nama} dipindah → {format(new Date(`${ov.tanggal}T12:00:00`), "EEEE, d MMM", { locale: id })}
+              </p>
+              {ov.keterangan && <p className="text-[13px] font-medium">“{ov.keterangan}” — {ov.oleh}</p>}
+              {bolehAturJadwal(m.id) && (
+                <button
+                  onClick={() => setTanyaId(ov.id)}
+                  className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-(--color-apel) hover:underline"
+                >
+                  <Trash2 size={13} /> Batalkan pemindahan
+                </button>
+              )}
+            </div>
+          ))}
+          {info.ovHari
+            .filter((o) => o.tipe !== "libur")
+            .map((o) => {
+              const m = matkul.find((x) => x.id === o.matkulId);
+              if (!m) return null;
+              const tampilSesi =
+                o.tipe === "pengganti" &&
+                semua.some((s) => s.ov?.id === o.id);
+              if (tampilSesi) return null;
+              return (
+                <div key={o.id} className="rounded-2xl bg-(--color-cream) p-3">
+                  <p className="text-[14px] font-extrabold">
+                    {m.nama} · {LABEL_OVERRIDE[o.tipe]}
+                    {o.asal ? ` (dari ${format(new Date(`${o.asal}T12:00:00`), "d MMM", { locale: id })})` : ""}
+                  </p>
+                  {(o.jam || o.ruang) && (
+                    <p className="text-[13px] font-bold text-(--color-soft)">
+                      {[o.jam, o.ruang].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {o.keterangan && <p className="text-[13px] font-medium">“{o.keterangan}” — {o.oleh}</p>}
+                  {bolehAturJadwal(m.id) && (
+                    <button
+                      onClick={() => setTanyaId(o.id)}
+                      className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-(--color-apel) hover:underline"
+                    >
+                      <Trash2 size={13} /> Batalkan info
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          {!semua.length && !info.libur.size && !info.dipindah.length && (
             <p className="rounded-2xl bg-(--color-cream) p-4 text-center text-[14px] font-bold text-(--color-soft)">
               Tidak ada kelas hari ini. Rebahan yang rajin ya.
             </p>
@@ -434,11 +525,7 @@ function DrawerHari({
 
           {kandidat.length > 0 && !formBuka && (
             <button
-              onClick={() => {
-                setErr(null);
-                setFMk(kandidat[0]?.id ?? "");
-                setFormBuka(true);
-              }}
+              onClick={bukaForm}
               className="flex w-full items-center justify-center gap-1.5 rounded-full border-2 border-dashed border-(--color-line) px-4 py-2.5 text-[13px] font-extrabold text-(--color-soft) hover:border-(--color-lemon)"
             >
               <PencilLine size={15} /> Atur jadwal (libur / pengganti / online / pindah)
@@ -448,23 +535,39 @@ function DrawerHari({
           {formBuka && (
             <form onSubmit={kirim} className="rounded-2xl bg-(--color-cream) p-3.5">
               <p className="text-[13px] font-extrabold uppercase tracking-widest text-(--color-faint)">
-                Info jadwal {format(tanggal, "d MMM", { locale: id })}
+                Info jadwal — dibuka dari {format(tanggal, "d MMM", { locale: id })}
               </p>
-              <select
-                value={fMk}
-                onChange={(e) => setFMk(e.target.value)}
-                className="field mt-2 w-full px-3 py-2 text-[14px] font-bold outline-none"
-              >
-                {kandidat.map((m) => (
-                  <option key={m.id} value={m.id}>{m.nama}</option>
-                ))}
-              </select>
+              <label className="mt-2 block text-[12px] font-extrabold uppercase tracking-widest text-(--color-soft)">
+                Matkul (semua yang kamu kelola, bukan cuma hari ini)
+                <select
+                  value={fMk}
+                  onChange={(e) => pilihMk(e.target.value)}
+                  className="field mt-1 w-full px-3 py-2 text-[14px] font-bold outline-none"
+                >
+                  {defaultIds.length > 0 && (
+                    <optgroup label={`Ada hari ini (${format(tanggal, "EEEE", { locale: id })})`}>
+                      {defaultIds.map((idMk) => {
+                        const mm = matkul.find((x) => x.id === idMk);
+                        return mm ? <option key={idMk} value={idMk}>{mm.nama}</option> : null;
+                      })}
+                    </optgroup>
+                  )}
+                  <optgroup label="Semua matkul saya">
+                    {kandidat.filter((m) => !defaultIds.includes(m.id)).map((m) => (
+                      <option key={m.id} value={m.id}>{m.nama}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {(Object.keys(LABEL_OVERRIDE) as TipeOverride[]).map((t) => (
                   <button
                     type="button"
                     key={t}
-                    onClick={() => setFTipe(t)}
+                    onClick={() => {
+                      setFTipe(t);
+                      if (t === "pengganti" && !fAsal) setFAsal(k);
+                    }}
                     className={`rounded-xl border-2 px-3 py-2 text-[13px] font-extrabold ${
                       fTipe === t
                         ? "border-(--color-ink) bg-(--color-ink) text-[#fff6e8] dark:text-[#181222]"
@@ -475,6 +578,34 @@ function DrawerHari({
                   </button>
                 ))}
               </div>
+              <div className="mt-2 grid gap-2 min-[400px]:grid-cols-2">
+                <label className="text-[12px] font-extrabold uppercase tracking-widest text-(--color-soft)">
+                  Berlaku tanggal
+                  <input
+                    type="date"
+                    value={fTgl}
+                    onChange={(e) => setFTgl(e.target.value)}
+                    className="field mt-1 w-full min-w-0 px-3 py-2 text-[14px] outline-none"
+                    required
+                  />
+                </label>
+                {fTipe === "pengganti" && (
+                  <label className="text-[12px] font-extrabold uppercase tracking-widest text-(--color-soft)">
+                    Pindahan dari (opsional)
+                    <input
+                      type="date"
+                      value={fAsal}
+                      onChange={(e) => setFAsal(e.target.value)}
+                      className="field mt-1 w-full min-w-0 px-3 py-2 text-[14px] outline-none"
+                    />
+                  </label>
+                )}
+              </div>
+              {fTipe === "pengganti" && (
+                <p className="mt-1 text-[12px] font-bold text-(--color-soft)">
+                  Contoh: Selasa 20 Okt → Rabu 14 Okt. Isi berlaku 14 Okt, asal 20 Okt — sesi 20 Okt otomatis hilang sementara.
+                </p>
+              )}
               {fTipe !== "libur" && (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <input

@@ -78,8 +78,8 @@ export default function AdminPage() {
                 : "border-(--color-line) bg-(--color-card) text-(--color-soft) hover:border-(--color-faint)"
             }`}
           >
-            <t.icon size={16} strokeWidth={2.6} />
-            {t.label}
+            <t.icon size={16} strokeWidth={2.6} className="shrink-0" />
+            <span className="whitespace-nowrap">{t.label}</span>
           </button>
         ))}
       </nav>
@@ -268,24 +268,24 @@ function SemesterAtur() {
         Satu semester aktif. Kalender hanya menampilkan jadwal di rentang ini. Ganti tanggal tiap
         semester baru — matkul lama otomatis ikut semester baru.
       </p>
-      <form onSubmit={kirim} className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+      <form onSubmit={kirim} className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Label, mis. Semester 2"
           maxLength={60}
-          className="field min-w-0 px-4 py-2.5 text-[15px] font-bold outline-none sm:col-span-2 md:col-span-1"
+          className="field min-w-0 px-4 py-2.5 text-[15px] font-bold outline-none"
           required
         />
-        <label className="field flex items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
-          Mulai
-          <input type="date" value={mulai} onChange={(e) => setMulai(e.target.value)} className="bg-transparent outline-none" required />
+        <label className="field flex min-w-0 items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
+          <span className="shrink-0">Mulai</span>
+          <input type="date" value={mulai} onChange={(e) => setMulai(e.target.value)} className="w-full min-w-0 bg-transparent outline-none" required />
         </label>
-        <label className="field flex items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
-          Selesai
-          <input type="date" value={selesai} onChange={(e) => setSelesai(e.target.value)} className="bg-transparent outline-none" required />
+        <label className="field flex min-w-0 items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
+          <span className="shrink-0">Selesai</span>
+          <input type="date" value={selesai} onChange={(e) => setSelesai(e.target.value)} className="w-full min-w-0 bg-transparent outline-none" required />
         </label>
-        <button className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
+        <button className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] sm:col-span-2 lg:col-span-1 dark:text-[#181222]">
           Simpan semester
         </button>
       </form>

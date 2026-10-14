@@ -56,7 +56,7 @@ export function ModalUbahMatkul({ matkulId, onTutup }: { matkulId: string; onTut
       <form
         onSubmit={simpan}
         onClick={(e) => e.stopPropagation()}
-        className="paper-card my-8 w-full max-w-lg !rounded-3xl p-5 md:p-6"
+        className="paper-card m-auto w-full max-w-lg !rounded-3xl p-5 md:p-6"
       >
         <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
           <PencilLine size={20} /> Ubah {m.nama}
@@ -221,7 +221,7 @@ export function ModalTambahMatkul({ onTutup }: { onTutup: () => void }) {
       <form
         onSubmit={simpan}
         onClick={(e) => e.stopPropagation()}
-        className="paper-card my-8 w-full max-w-lg !rounded-3xl p-5 md:p-6"
+        className="paper-card m-auto w-full max-w-lg !rounded-3xl p-5 md:p-6"
       >
         <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
           <BookPlus size={20} /> Tambah matkul

@@ -429,6 +429,8 @@ create table if not exists public.jadwal_override (
   id text primary key,
   matkul_id text not null references public.matkul(id) on delete cascade,
   tanggal date not null,
+  -- Khusus pengganti: tanggal asal yang dipindah (nullable, DB lama tambah via alter di bawah)
+  asal date,
   tipe text not null default 'libur' check (tipe in ('libur','pengganti','online','pindah')),
   jam text not null default '',
   ruang text not null default '',
@@ -437,6 +439,7 @@ create table if not exists public.jadwal_override (
   oleh_id text,
   created_at timestamptz not null default now()
 );
+alter table public.jadwal_override add column if not exists asal date;
 
 alter table public.tautan add column if not exists gambar_url text not null default '';
 alter table public.semester_aktif enable row level security;

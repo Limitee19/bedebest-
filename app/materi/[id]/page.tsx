@@ -194,7 +194,7 @@ export default function MateriDetail() {
           <form
             onSubmit={simpanDrive}
             onClick={(e) => e.stopPropagation()}
-            className="paper-card my-8 w-full max-w-md !rounded-3xl p-5 md:p-6"
+            className="paper-card m-auto w-full max-w-md !rounded-3xl p-5 md:p-6"
           >
             <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
               <FolderOpen size={20} /> Folder Drive matkul

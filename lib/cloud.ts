@@ -173,6 +173,7 @@ function mapOverride(r: Row): JadwalOverride {
     id: s(r.id),
     matkulId: s(r.matkul_id),
     tanggal: /^\d{4}-\d{2}-\d{2}/.test(s(r.tanggal)) ? s(r.tanggal).slice(0, 10) : "",
+    asal: /^\d{4}-\d{2}-\d{2}/.test(s(r.asal)) ? s(r.asal).slice(0, 10) : undefined,
     tipe: t === "pengganti" || t === "online" || t === "pindah" ? (t as TipeOverride) : "libur",
     jam: s(r.jam),
     ruang: s(r.ruang),
@@ -319,11 +320,12 @@ export async function cloudUpsert(tbl: Tbl, row: Row) {
     // DB lama belum punya kolom baru (drive_url/pertemuan/gambar_url) → coba lagi tanpa kolom itu
     // agar update lain tetap tersimpan, bukan gagal total.
     const msg = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`;
-    if (/drive_url|pertemuan|gambar_url/i.test(msg)) {
+    if (/drive_url|pertemuan|gambar_url|asal/i.test(msg)) {
       const salin = { ...row };
       delete salin.drive_url;
       delete salin.pertemuan;
       delete salin.gambar_url;
+      delete salin.asal;
       try {
         await sb.from(tbl).upsert(salin, { onConflict: "id" });
       } catch {
@@ -412,6 +414,7 @@ export const keRowOverride = (o: JadwalOverride): Row => ({
   id: o.id,
   matkul_id: o.matkulId,
   tanggal: o.tanggal,
+  asal: o.asal ?? null,
   tipe: o.tipe,
   jam: o.jam,
   ruang: o.ruang,

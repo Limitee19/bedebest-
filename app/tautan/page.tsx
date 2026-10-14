@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, ImagePlus, Link2, Palette, Plus, Search, Trash2 } from "lucide-react";
+import { ExternalLink, ImagePlus, Link2, Palette, PencilLine, Plus, Search, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   LABEL_KATEGORI,
@@ -24,7 +24,7 @@ const BATAS_AWAL = 8;
 const TAMBAH = 12;
 
 export default function TautanPage() {
-  const { user, tautan, matkul, addTautan, hapusTautan, notify } = useStore();
+  const { user, tautan, matkul, addTautan, updateTautan, hapusTautan, notify } = useStore();
   const [filterMk, setFilterMk] = useState("semua");
   const [filterKat, setFilterKat] = useState("semua");
   const [cari, setCari] = useState("");
@@ -42,6 +42,7 @@ export default function TautanPage() {
   const [warnaKelas, setWarnaKelas] = useState(() => muatWarnaKelas());
   const [aturWarna, setAturWarna] = useState(false);
   const [gagalGambar, setGagalGambar] = useState<Set<string>>(new Set());
+  const [ubahId, setUbahId] = useState<string | null>(null);
 
   const matkulSaya = matkul.filter((m) => matkulTerlihat(m, user));
   const bolehId = new Set(matkulSaya.map((m) => m.id));
@@ -74,6 +75,17 @@ export default function TautanPage() {
     }
   }
 
+  function bukaTambah() {
+    setFJudul("");
+    setFUrl("");
+    setFKat("kumpul");
+    setFMk("");
+    setFDesk("");
+    setFGambar("");
+    setErr(null);
+    setTambahBuka(true);
+  }
+
   function kirim(e: React.FormEvent) {
     e.preventDefault();
     const gagal = addTautan({
@@ -101,11 +113,48 @@ export default function TautanPage() {
     notify("Tautan tersimpan.");
   }
 
-  function bolehHapus(t: (typeof tautan)[number]) {
-    if (!user) return false;
-    if (t.olehId ? t.olehId === user.id : t.oleh === user.nama) return true;
-    if (user.role === "admin") return true;
-    return !!t.matkulId && matkul.some((m) => m.id === t.matkulId && (m.pjIds ?? []).includes(user.id));
+  function kirimUbah(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ubahId) return;
+    const gagal = updateTautan(ubahId, {
+      judul: fJudul,
+      url: fUrl,
+      kategori: fKat,
+      matkulId: fMk,
+      deskripsi: fDesk,
+      gambarUrl: fGambar.trim() ? fGambar.trim() : null,
+    });
+    if (gagal) {
+      setErr(gagal);
+      return;
+    }
+    setUbahId(null);
+    setErr(null);
+    setGagalGambar((p) => {
+      const n = new Set(p);
+      n.delete(ubahId);
+      return n;
+    });
+    notify("Tautan diperbarui.");
+  }
+
+  function hakTautan(t: (typeof tautan)[number]) {
+    if (!user) return { ubah: false, hapus: false };
+    const milikku = t.olehId ? t.olehId === user.id : t.oleh === user.nama;
+    const pj = !!t.matkulId && matkul.some((m) => m.id === t.matkulId && (m.pjIds ?? []).includes(user.id));
+    const kuasanya = milikku || user.role === "admin" || pj;
+    return { ubah: kuasanya, hapus: kuasanya };
+  }
+
+  function bukaUbah(t: (typeof tautan)[number]) {
+    setFJudul(t.judul);
+    setFUrl(t.url);
+    setFKat(t.kategori);
+    setFMk(t.matkulId);
+    setFDesk(t.deskripsi);
+    setFGambar(t.gambarUrl ?? "");
+    setErr(null);
+    setUbahId(t.id);
   }
 
   return (
@@ -115,7 +164,7 @@ export default function TautanPage() {
           <SectionTitle
             no={<Link2 size={22} />}
             title="Tautan Penting"
-            desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
+            desc="Semua anak boleh menambah. Milik sendiri bisa diubah/dihapus; milik orang lain hanya admin/PJ."
           />
         </div>
         <div className="flex gap-2">
@@ -127,10 +176,7 @@ export default function TautanPage() {
             <Palette size={15} /> Warna
           </button>
           <button
-            onClick={() => {
-              setErr(null);
-              setTambahBuka(true);
-            }}
+            onClick={bukaTambah}
             className="btn-hard flex flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-4 py-3 text-[13px] font-extrabold uppercase tracking-widest text-white sm:mt-1 sm:flex-none sm:px-5 sm:py-2.5"
           >
             <Plus size={15} strokeWidth={3} /> Tambah
@@ -278,14 +324,27 @@ export default function TautanPage() {
                   oleh {t.oleh}
                 </p>
               </div>
-              {bolehHapus(t) && (
-                <button
-                  onClick={() => setTanyaId(t.id)}
-                  title="Hapus tautan"
-                  className="shrink-0 rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
-                >
-                  <Trash2 size={15} />
-                </button>
+              {(hakTautan(t).ubah || hakTautan(t).hapus) && (
+                <span className="flex shrink-0 gap-1.5">
+                  {hakTautan(t).ubah && (
+                    <button
+                      onClick={() => bukaUbah(t)}
+                      title="Ubah tautan"
+                      className="rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-lemon-soft)"
+                    >
+                      <PencilLine size={15} />
+                    </button>
+                  )}
+                  {hakTautan(t).hapus && (
+                    <button
+                      onClick={() => setTanyaId(t.id)}
+                      title="Hapus tautan"
+                      className="rounded-xl border-2 border-(--color-line) p-2 text-(--color-soft) hover:bg-(--color-apel-soft) hover:text-(--color-apel)"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </span>
               )}
             </article>
           );
@@ -319,7 +378,7 @@ export default function TautanPage() {
           <form
             onSubmit={kirim}
             onClick={(e) => e.stopPropagation()}
-            className="paper-card my-8 w-full max-w-lg !rounded-3xl p-5 md:p-6"
+            className="paper-card m-auto w-full max-w-lg !rounded-3xl p-5 md:p-6"
           >
             <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
               <Plus size={20} /> Tambah tautan
@@ -391,6 +450,89 @@ export default function TautanPage() {
                 className="btn-hard rounded-full bg-(--color-daun) px-4 py-2.5 text-[14px] font-extrabold text-white"
               >
                 Simpan tautan
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {ubahId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/45 p-4" onClick={() => setUbahId(null)}>
+          <form
+            onSubmit={kirimUbah}
+            onClick={(e) => e.stopPropagation()}
+            className="paper-card m-auto w-full max-w-lg !rounded-3xl p-5 md:p-6"
+          >
+            <h3 className="font-display flex items-center gap-2 text-[22px] font-bold">
+              <PencilLine size={20} /> Ubah tautan
+            </h3>
+            <p className="mt-0.5 text-[13px] font-medium text-(--color-soft)">
+              Perubahan berlaku untuk semua akun. Kosongkan gambar untuk kembali ke ikon.
+            </p>
+            <input
+              value={fJudul}
+              onChange={(e) => setFJudul(e.target.value)}
+              placeholder="Judul"
+              className="field mt-3 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+              maxLength={120}
+            />
+            <input
+              value={fUrl}
+              onChange={(e) => setFUrl(e.target.value)}
+              placeholder="https://…"
+              inputMode="url"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+              required
+            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <select value={fKat} onChange={(e) => setFKat(e.target.value as KategoriTautan)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+                {KATEGORI.map((k) => (
+                  <option key={k} value={k}>{LABEL_KATEGORI[k]}</option>
+                ))}
+              </select>
+              <select value={fMk} onChange={(e) => setFMk(e.target.value)} className="field px-4 py-2.5 text-[15px] font-semibold outline-none">
+                <option value="">Milik kelas (semua anak)</option>
+                {matkulSaya.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nama}</option>
+                ))}
+              </select>
+            </div>
+            <input
+              value={fDesk}
+              onChange={(e) => setFDesk(e.target.value)}
+              placeholder="Keterangan singkat (opsional)"
+              className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
+              maxLength={500}
+            />
+            <label className="field mt-2 flex items-center gap-2 px-4 py-2.5 text-[15px] outline-none">
+              <ImagePlus size={17} className="shrink-0 text-(--color-faint)" />
+              <input
+                value={fGambar}
+                onChange={(e) => setFGambar(e.target.value)}
+                placeholder="Link gambar/cover (kosongkan = ikon)"
+                inputMode="url"
+                className="w-full bg-transparent outline-none"
+              />
+            </label>
+            {fGambar.trim() && urlAman(fGambar) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={urlAman(fGambar)!} alt="Pratinjau" className="mt-2 h-20 w-20 rounded-2xl border-2 border-(--color-line) object-cover" />
+            )}
+            {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUbahId(null)}
+                className="rounded-full border-2 border-(--color-line) px-4 py-2.5 text-[14px] font-extrabold text-(--color-soft) hover:bg-(--color-cream)"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[14px] font-extrabold text-[#fff6e8] dark:text-[#181222]"
+              >
+                Simpan perubahan
               </button>
             </div>
           </form>

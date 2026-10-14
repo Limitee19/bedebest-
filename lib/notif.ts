@@ -73,9 +73,13 @@ export function jadwalHariIni(
   const kunci = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const ovHari = (overrides ?? []).filter((o) => o.tanggal === kunci);
   const libur = new Set(ovHari.filter((o) => o.tipe === "libur").map((o) => o.matkulId));
+  // Pengganti yang dipindah DARI hari ini → sesi normal disembunyikan.
+  const pindahKeluar = new Set(
+    (overrides ?? []).filter((o) => o.tipe === "pengganti" && o.asal === kunci).map((o) => o.matkulId)
+  );
   const dasar = daftar.flatMap((m) =>
     m.jadwal
-      .filter((sesi) => normalHari(sesi.hari) === hari && !libur.has(m.id))
+      .filter((sesi) => normalHari(sesi.hari) === hari && !libur.has(m.id) && !pindahKeluar.has(m.id))
       .map((sesi) => {
         const ganti = ovHari.find(
           (o) => o.matkulId === m.id && (o.tipe === "online" || o.tipe === "pindah")

@@ -31,7 +31,7 @@ export function MatkulCard({ m, onEdit, onDelete }: { m: Matkul; onEdit?: () => 
             {m.kode}
           </span>
           <SksCap sks={m.sks} />
-          <span className="ml-auto flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="ml-auto flex gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
             {bolehUbah && (
               <button onClick={() => (onEdit ? onEdit() : setBukaUbah(true))} title="Ubah info matkul" className="rounded-lg bg-white/70 p-1.5 text-(--color-soft) hover:text-(--color-ink)">
                 <PencilLine size={15} />

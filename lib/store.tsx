@@ -101,6 +101,19 @@ interface Store {
     pertemuan?: number;
     gambarUrl?: string;
   }) => string | null;
+  /** Ubah tautan milik sendiri (pembuatnya, admin, atau PJ matkul tsb). null = berhasil. */
+  updateTautan: (
+    id: string,
+    patch: {
+      judul?: string;
+      url?: string;
+      kategori?: KategoriTautan;
+      deskripsi?: string;
+      pertemuan?: number | null;
+      gambarUrl?: string | null;
+      matkulId?: string;
+    }
+  ) => string | null;
   /** Hapus tautan (pembuatnya, admin, atau PJ matkul tsb). */
   hapusTautan: (id: string) => void;
   finalizeTugas: (input: {
@@ -138,6 +151,7 @@ interface Store {
   simpanOverride: (input: {
     matkulId: string;
     tanggal: string;
+    asal?: string;
     tipe: TipeOverride;
     jam?: string;
     ruang?: string;
@@ -719,6 +733,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         catat("tautan", `menambahkan tautan “${judul}” di ${namaMk}`, user.nama);
         return null;
       },
+      updateTautan: (id, patch) => {
+        const target = tautan.find((t) => t.id === id);
+        const saya = user;
+        if (!target || !saya) return "Tautan tidak ketemu.";
+        const milikku = target.olehId ? target.olehId === saya.id : target.oleh === saya.nama;
+        const boleh =
+          milikku || saya.role === "admin" || (target.matkulId && bolehKelola(saya, matkul, target.matkulId));
+        if (!boleh) return "Hanya pemilik / admin / PJ yang boleh mengubah.";
+        if (patch.judul !== undefined && !patch.judul.trim()) return "Judul wajib diisi.";
+        if (patch.url !== undefined && !urlAman(patch.url))
+          return "Link tidak valid. Pakai http(s).";
+        if (patch.gambarUrl !== undefined && patch.gambarUrl !== null && patch.gambarUrl.trim() && !urlAman(patch.gambarUrl))
+          return "Link gambar tidak valid. Pakai http(s) atau kosongkan.";
+        const p = patch.pertemuan;
+        const baru: Tautan = {
+          ...target,
+          ...(patch.judul !== undefined ? { judul: patch.judul.trim().slice(0, 120) } : {}),
+          ...(patch.url !== undefined ? { url: urlAman(patch.url)! } : {}),
+          ...(patch.kategori !== undefined ? { kategori: patch.kategori } : {}),
+          ...(patch.deskripsi !== undefined ? { deskripsi: patch.deskripsi.trim().slice(0, 500) } : {}),
+          ...(patch.matkulId !== undefined ? { matkulId: patch.matkulId } : {}),
+          ...(p !== undefined
+            ? { pertemuan: p === null ? undefined : Number.isInteger(p) && p >= 1 && p <= 16 ? p : target.pertemuan }
+            : {}),
+          ...(patch.gambarUrl !== undefined
+            ? { gambarUrl: patch.gambarUrl === null || !patch.gambarUrl.trim() ? undefined : urlAman(patch.gambarUrl)! }
+            : {}),
+        };
+        setTautan((prev) => prev.map((t) => (t.id === id ? baru : t)));
+        syncKeCloud("tautan", baru);
+        catat("tautan", `mengubah tautan “${baru.judul}”`, saya.nama);
+        return null;
+      },
       hapusTautan: (id) => {
         const target = tautan.find((t) => t.id === id);
         const saya = user;
@@ -870,12 +917,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           saya.role === "admin" || (mk.pjIds ?? []).includes(saya.id);
         if (!boleh) return "Hanya admin / PJ matkul ini yang boleh mengatur jadwal.";
         if (!/^\d{4}-\d{2}-\d{2}$/.test(input.tanggal)) return "Tanggal tidak valid.";
+        const asal = (input.asal ?? "").trim();
+        if (input.tipe === "pengganti") {
+          if (asal && !/^\d{4}-\d{2}-\d{2}$/.test(asal)) return "Tanggal asal tidak valid.";
+          if (asal && asal === input.tanggal) return "Tanggal asal dan pengganti sama.";
+        }
         if (input.tipe !== "libur" && !(input.jam ?? "").trim() && !(input.ruang ?? "").trim() && !(input.keterangan ?? "").trim())
           return "Isi jam / ruang / keterangan dulu.";
         const entri: JadwalOverride = {
           id: `ov-${Date.now()}`,
           matkulId: input.matkulId,
           tanggal: input.tanggal,
+          ...(input.tipe === "pengganti" && asal ? { asal } : {}),
           tipe: input.tipe,
           jam: (input.jam ?? "").trim().slice(0, 60),
           ruang: (input.ruang ?? "").trim().slice(0, 120),
@@ -884,11 +937,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           olehId: saya.id,
           createdAt: new Date().toISOString(),
         };
-        setOverrides((p) => [entri, ...p].filter((o) => o.tanggal >= semester.mulai || true).slice(0, 500));
+        setOverrides((p) => [entri, ...p].slice(0, 500));
         if (modeRef.current === "cloud") void cloudUpsert("jadwal_override", keRowOverride(entri));
         catat(
           "jadwal",
-          `${LABEL_OVERRIDE[input.tipe]} ${mk.nama} ${input.tanggal}${entri.keterangan ? ` — ${entri.keterangan}` : ""}`,
+          `${LABEL_OVERRIDE[input.tipe]} ${mk.nama} ${input.tanggal}${asal ? ` (pindahan dari ${asal})` : ""}${entri.keterangan ? ` — ${entri.keterangan}` : ""}`,
           saya.nama
         );
         return null;
