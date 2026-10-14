@@ -140,12 +140,12 @@ alter table public.tautan add column if not exists oleh_id text;
 alter table public.tautan add column if not exists pertemuan int check (pertemuan is null or (pertemuan between 1 and 16));
 alter table public.matkul add column if not exists drive_url text;
 
--- Tipe aktivitas baru "tautan": longgarkan check lama bila tabel sudah ada.
+-- Tipe aktivitas baru: longgarkan check lama bila tabel sudah ada.
 do $$
 begin
   alter table public.aktivitas drop constraint if exists aktivitas_tipe_check;
   alter table public.aktivitas add constraint aktivitas_tipe_check
-    check (tipe in ('catatan','usulan','resmi','selesai','anggota','matkul','tautan'));
+    check (tipe in ('catatan','usulan','resmi','selesai','anggota','matkul','tautan','jadwal','semester'));
 exception when others then null;
 end $$;
 
@@ -179,6 +179,12 @@ drop policy if exists "tulis_tautan" on public.tautan;
 drop policy if exists "hapus_tautan_sendiri" on public.tautan;
 drop policy if exists "admin_tautan" on public.tautan;
 drop policy if exists "pj_tautan" on public.tautan;
+drop policy if exists "admin_tugas_insert" on public.tugas;
+drop policy if exists "pj_tugas_insert" on public.tugas;
+drop policy if exists "baca_kelas" on public.semester_aktif;
+drop policy if exists "baca_kelas" on public.jadwal_override;
+drop policy if exists "admin_semester" on public.semester_aktif;
+drop policy if exists "kelola_override" on public.jadwal_override;
 
 -- Semua anggota kelas yang login boleh baca semuanya
 create policy "baca_kelas" on public.profiles for select to authenticated using (true);
