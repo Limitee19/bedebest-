@@ -61,13 +61,43 @@ export function normalHari(s: string) {
   return s.toLowerCase().trim();
 }
 
-/** Sesi kuliah hari ini, hanya matkul yang diambil user ini. */
-export function jadwalHariIni(matkul: Matkul[], user?: User | null): SesiHariIni[] {
+/** Sesi kuliah hari ini, hanya matkul yang diambil user ini (hormati override libur/pindah). */
+export function jadwalHariIni(
+  matkul: Matkul[],
+  user?: User | null,
+  overrides?: import("./data").JadwalOverride[]
+): SesiHariIni[] {
   const daftar = user ? matkul.filter((m) => matkulTerlihat(m, user)) : matkul;
   const hari = normalHari(namaHariIni());
-  return daftar.flatMap((m) =>
-    m.jadwal.filter((sesi) => normalHari(sesi.hari) === hari).map((sesi) => ({ m, sesi }))
+  const now = new Date();
+  const kunci = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const ovHari = (overrides ?? []).filter((o) => o.tanggal === kunci);
+  const libur = new Set(ovHari.filter((o) => o.tipe === "libur").map((o) => o.matkulId));
+  const dasar = daftar.flatMap((m) =>
+    m.jadwal
+      .filter((sesi) => normalHari(sesi.hari) === hari && !libur.has(m.id))
+      .map((sesi) => {
+        const ganti = ovHari.find(
+          (o) => o.matkulId === m.id && (o.tipe === "online" || o.tipe === "pindah")
+        );
+        return {
+          m,
+          sesi: ganti
+            ? { hari: sesi.hari, jam: ganti.jam || sesi.jam, ruang: ganti.ruang || sesi.ruang }
+            : sesi,
+        };
+      })
   );
+  const ganti = ovHari
+    .filter((o) => o.tipe === "pengganti" && !libur.has(o.matkulId))
+    .map((o) => {
+      const m = daftar.find((x) => x.id === o.matkulId);
+      return m
+        ? { m, sesi: { hari, jam: o.jam || "Menyusul", ruang: o.ruang || "Menyusul" } as Jadwal }
+        : null;
+    })
+    .filter((x): x is SesiHariIni => !!x);
+  return [...dasar, ...ganti];
 }
 
 export function kunciHariIni() {

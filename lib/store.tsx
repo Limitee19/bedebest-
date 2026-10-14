@@ -14,28 +14,41 @@ import {
   keRowAktivitas,
   keRowCatatan,
   keRowMatkul,
+  keRowOverride,
+  keRowSemester,
   keRowTautan,
   keRowTugas,
 } from "./cloud";
 import {
   ADMIN_EMAIL,
+  LABEL_OVERRIDE,
   seedAktivitas,
   seedCatatan,
   seedMatkul,
   seedTugas,
   seedUsers,
+  semesterDefault,
   urlAman,
   type Aktivitas,
   type Catatan,
+  type JadwalOverride,
   type KategoriTautan,
   type Matkul,
   type Prioritas,
+  type SemesterAktif,
   type StatusTugas,
   type Tautan,
   type TipeAktivitas,
+  type TipeOverride,
   type Tugas,
   type User,
 } from "./data";
+
+export interface Toast {
+  id: number;
+  teks: string;
+  jenis: "ok" | "gagal";
+}
 
 interface Store {
   user: User | null;
@@ -45,6 +58,11 @@ interface Store {
   catatan: Catatan[];
   tautan: Tautan[];
   aktivitas: Aktivitas[];
+  semester: SemesterAktif;
+  overrides: JadwalOverride[];
+  toast: Toast | null;
+  /** Tampilkan notif kecil temakan (ganti alert). */
+  notify: (teks: string, jenis?: Toast["jenis"]) => void;
   /** "cloud" = tersambung ke Supabase (HP & desktop sinkron + realtime). */
   mode: "cloud" | "lokal";
   cloudSiap: boolean;
@@ -81,6 +99,7 @@ interface Store {
     kategori: KategoriTautan;
     deskripsi: string;
     pertemuan?: number;
+    gambarUrl?: string;
   }) => string | null;
   /** Hapus tautan (pembuatnya, admin, atau PJ matkul tsb). */
   hapusTautan: (id: string) => void;
@@ -113,10 +132,24 @@ interface Store {
   toggleSelesai: (id: string) => void;
   toggleSubtask: (tugasId: string, idx: number) => void;
   matkulById: (id: string) => Matkul | undefined;
+  /** Simpan semester aktif (admin saja). null = berhasil. */
+  simpanSemester: (sem: { label: string; mulai: string; selesai: string }) => string | null;
+  /** Tambah/ubah jadwal tanggal tertentu (admin / PJ matkul tsb). null = berhasil. */
+  simpanOverride: (input: {
+    matkulId: string;
+    tanggal: string;
+    tipe: TipeOverride;
+    jam?: string;
+    ruang?: string;
+    keterangan?: string;
+  }) => string | null;
+  hapusOverride: (id: string) => void;
+  bolehAturJadwal: (matkulId: string) => boolean;
+  overridePada: (matkulId: string, tanggal: string) => JadwalOverride[];
 }
 
 const Ctx = createContext<Store | null>(null);
-const LS_KEY = "tongban-store-v8";
+const LS_KEY = "tongban-store-v9";
 
 /** Apakah user ini sudah menandai tugas selesai? */
 export function sudahSelesai(t: { selesaiOleh?: string[] }, userId: string | undefined) {
@@ -170,7 +203,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [catatan, setCatatan] = useState<Catatan[]>([]);
   const [tautan, setTautan] = useState<Tautan[]>([]);
   const [aktivitas, setAktivitas] = useState<Aktivitas[]>([]);
+  const [semester, setSemester] = useState<SemesterAktif>(() => semesterDefault());
+  const [overrides, setOverrides] = useState<JadwalOverride[]>([]);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ready, setReady] = useState(false);
+
+  function notify(teks: string, jenis: Toast["jenis"] = "ok") {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), teks, jenis });
+    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  }
   const [mode, setMode] = useState<"cloud" | "lokal">("lokal");
   const [cloudSiap, setCloudSiap] = useState(false);
   const modeRef = useRef<"cloud" | "lokal">("lokal");
@@ -183,6 +226,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     catatan: Catatan[];
     tautan: Tautan[];
     aktivitas: Aktivitas[];
+    semester?: SemesterAktif;
+    overrides?: JadwalOverride[];
   }) {
     // Cloud = sumber kebenaran bila ada datanya; seed lokal hanya fallback awal.
     // Gabung driveUrl/pertemuan lokal bila cloud belum punya kolomnya
@@ -198,20 +243,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTugas(d.tugas);
     setCatatan(d.catatan);
     setTautan((prev) => {
-      const lokal = new Map(prev.map((t) => [t.id, t.pertemuan]));
-      return d.tautan.map((t) =>
-        t.pertemuan !== undefined
-          ? t
-          : lokal.get(t.id) !== undefined
-            ? { ...t, pertemuan: lokal.get(t.id) }
-            : t
-      );
+      const lokal = new Map(prev.map((t) => [t.id, { p: t.pertemuan, g: t.gambarUrl }]));
+      return d.tautan.map((t) => {
+        const l = lokal.get(t.id);
+        return {
+          ...t,
+          pertemuan: t.pertemuan !== undefined ? t.pertemuan : l?.p,
+          gambarUrl: t.gambarUrl || l?.g,
+        };
+      });
     });
     setAktivitas(d.aktivitas);
+    if (d.semester) setSemester(d.semester);
+    if (d.overrides) setOverrides(d.overrides);
   }
 
   function terapkanLokal(
-    saved: Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & {
+    saved: Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas" | "semester" | "overrides"> & {
       user: User | null;
     }
   ) {
@@ -258,6 +306,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
     setTautan(tautanLama);
     setAktivitas(saved.aktivitas?.length ? saved.aktivitas : seedAktivitas());
+    setSemester(
+      saved.semester && saved.semester.mulai && saved.semester.selesai
+        ? saved.semester
+        : semesterDefault()
+    );
+    setOverrides(Array.isArray(saved.overrides) ? saved.overrides : []);
     setReady(true);
   }
 
@@ -278,7 +332,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async function mulai() {
       // 1) tampilkan cache lokal dulu biar cepat (khusus HP lemot)
       const saved = load<
-        Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas"> & {
+        Pick<Store, "users" | "matkul" | "tugas" | "catatan" | "tautan" | "aktivitas" | "semester" | "overrides"> & {
           user: User | null;
         }
       >(LS_KEY, () => ({
@@ -289,6 +343,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         catatan: seedCatatan(),
         tautan: [],
         aktivitas: seedAktivitas(),
+        semester: semesterDefault(),
+        overrides: [],
       }));
       if (!batal) {
         terapkanLokal(saved);
@@ -342,12 +398,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(
         LS_KEY,
-        JSON.stringify({ user, users, matkul, tugas, catatan, tautan, aktivitas })
+        JSON.stringify({ user, users, matkul, tugas, catatan, tautan, aktivitas, semester, overrides })
       );
     } catch {
       /* penyimpanan penuh / privat — abaikan, cloud tetap jalan */
     }
-  }, [user, users, matkul, tugas, catatan, tautan, aktivitas, ready]);
+  }, [user, users, matkul, tugas, catatan, tautan, aktivitas, semester, overrides, ready]);
 
   function catat(tipe: TipeAktivitas, teks: string, oleh: string) {
     const entri: Aktivitas = {
@@ -386,6 +442,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       catatan,
       tautan,
       aktivitas,
+      semester,
+      overrides,
+      toast,
+      notify,
       mode,
       cloudSiap,
       login: async (nama, nim) => {
@@ -637,6 +697,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const p = input.pertemuan;
         const pertemuan =
           p === undefined ? undefined : Number.isInteger(p) && p >= 1 && p <= 16 ? p : undefined;
+        const gbr = input.gambarUrl ? urlAman(input.gambarUrl) : null;
         const entri: Tautan = {
           id: `l-${Date.now()}`,
           matkulId: input.matkulId,
@@ -645,6 +706,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           kategori: input.kategori,
           deskripsi: input.deskripsi.trim().slice(0, 500),
           pertemuan,
+          gambarUrl: gbr ?? undefined,
           oleh: user.nama,
           olehId: user.id,
           createdAt: new Date().toISOString(),
@@ -767,10 +829,83 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         syncKeCloud("tugas", baru);
       },
       matkulById: (id) => matkul.find((m) => m.id === id),
+      simpanSemester: (sem) => {
+        if (user?.role !== "admin") return "Hanya admin yang boleh mengatur semester.";
+        const label = sem.label.trim().slice(0, 60) || "Semester";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sem.mulai) || !/^\d{4}-\d{2}-\d{2}$/.test(sem.selesai))
+          return "Tanggal semester tidak valid.";
+        if (sem.mulai > sem.selesai) return "Tanggal mulai harus sebelum selesai.";
+        const angka = /(\d+)/.exec(label)?.[1];
+        const semNum = angka ? parseInt(angka, 10) : 1;
+        const baru: SemesterAktif = { id: "aktif", label, mulai: sem.mulai, selesai: sem.selesai };
+        setSemester(baru);
+        if (modeRef.current === "cloud") void cloudUpsert("semester_aktif", keRowSemester(baru));
+        if (Number.isFinite(semNum) && semNum >= 1 && semNum <= 14) {
+          setMatkul((p) => {
+            const next = p.map((m) => {
+              if (m.semester && m.semester !== 1) return m;
+              const upd = { ...m, semester: semNum };
+              if (modeRef.current === "cloud") void cloudUpsert("matkul", keRowMatkul(upd));
+              return upd;
+            });
+            return next;
+          });
+        }
+        catat("semester", `mengatur ${label} (${sem.mulai} → ${sem.selesai})`, user.nama);
+        return null;
+      },
+      bolehAturJadwal: (matkulId) => {
+        if (!user) return false;
+        if (user.role === "admin") return true;
+        return (matkul.find((x) => x.id === matkulId)?.pjIds ?? []).includes(user.id);
+      },
+      overridePada: (matkulId, tanggal) =>
+        overrides.filter((o) => o.matkulId === matkulId && o.tanggal === tanggal),
+      simpanOverride: (input) => {
+        const saya = user;
+        if (!saya) return "Kamu belum masuk.";
+        const mk = matkul.find((x) => x.id === input.matkulId);
+        if (!mk) return "Matkul tidak ketemu.";
+        const boleh =
+          saya.role === "admin" || (mk.pjIds ?? []).includes(saya.id);
+        if (!boleh) return "Hanya admin / PJ matkul ini yang boleh mengatur jadwal.";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(input.tanggal)) return "Tanggal tidak valid.";
+        if (input.tipe !== "libur" && !(input.jam ?? "").trim() && !(input.ruang ?? "").trim() && !(input.keterangan ?? "").trim())
+          return "Isi jam / ruang / keterangan dulu.";
+        const entri: JadwalOverride = {
+          id: `ov-${Date.now()}`,
+          matkulId: input.matkulId,
+          tanggal: input.tanggal,
+          tipe: input.tipe,
+          jam: (input.jam ?? "").trim().slice(0, 60),
+          ruang: (input.ruang ?? "").trim().slice(0, 120),
+          keterangan: (input.keterangan ?? "").trim().slice(0, 500),
+          oleh: saya.nama,
+          olehId: saya.id,
+          createdAt: new Date().toISOString(),
+        };
+        setOverrides((p) => [entri, ...p].filter((o) => o.tanggal >= semester.mulai || true).slice(0, 500));
+        if (modeRef.current === "cloud") void cloudUpsert("jadwal_override", keRowOverride(entri));
+        catat(
+          "jadwal",
+          `${LABEL_OVERRIDE[input.tipe]} ${mk.nama} ${input.tanggal}${entri.keterangan ? ` — ${entri.keterangan}` : ""}`,
+          saya.nama
+        );
+        return null;
+      },
+      hapusOverride: (id) => {
+        const target = overrides.find((o) => o.id === id);
+        const saya = user;
+        if (!target || !saya) return;
+        const mk = matkul.find((x) => x.id === target.matkulId);
+        if (saya.role !== "admin" && !(mk?.pjIds ?? []).includes(saya.id)) return;
+        setOverrides((p) => p.filter((o) => o.id !== id));
+        if (modeRef.current === "cloud") void cloudHapus("jadwal_override", id);
+      },
     }),
     // muatUlangCloud stabil via ref; mode/cloudSiap memicu render ulang bila berubah.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, users, matkul, tugas, catatan, tautan, aktivitas, mode, cloudSiap]
+    [user, users, matkul, tugas, catatan, tautan, aktivitas, semester, overrides, toast, mode, cloudSiap]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

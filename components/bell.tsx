@@ -42,7 +42,7 @@ async function tampilkanNotifikasi(judul: string, isi: string) {
  * tugas yang belum diselesaikan user ini.
  */
 export function usePengingat() {
-  const { user, tugas, matkul } = useStore();
+  const { user, tugas, matkul, overrides } = useStore();
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -61,8 +61,11 @@ export function usePengingat() {
       } catch { /* abaikan */ }
       if (terakhir === kunci) return;
       const ingat = pengingatDeadline(tugas, matkul, user);
-      const jadwal = jadwalHariIni(matkul, user);
-      if (!ingat.length && !jadwal.length) return;
+      const jadwal = jadwalHariIni(matkul, user, overrides);
+      const ovHariIni = overrides.filter(
+        (o) => o.tanggal === kunci && matkul.some((m) => m.id === o.matkulId)
+      );
+      if (!ingat.length && !jadwal.length && !ovHariIni.length) return;
       const baris: string[] = [];
       if (ingat.length)
         baris.push(
@@ -75,6 +78,17 @@ export function usePengingat() {
           `Jadwal ${namaHariIni()}: ` +
             jadwal.map(({ m, sesi }) => `${m.nama} ${sesi.jam} @ ${sesi.ruang}`).join(" · ")
         );
+      if (ovHariIni.length)
+        baris.push(
+          `Info jadwal: ` +
+            ovHariIni
+              .slice(0, 3)
+              .map((o) => {
+                const nm = matkul.find((m) => m.id === o.matkulId)?.nama ?? "Kelas";
+                return `${nm} ${o.tipe}${o.keterangan ? ` — ${o.keterangan}` : ""}`;
+              })
+              .join(" · ")
+        );
       await tampilkanNotifikasi("BeDeBest mengingatkan", baris.join("\n"));
       try {
         localStorage.setItem(LS_HARI, kunci);
@@ -83,11 +97,11 @@ export function usePengingat() {
     cek();
     const timer = setInterval(cek, 60_000);
     return () => clearInterval(timer);
-  }, [user, tugas, matkul]);
+  }, [user, tugas, matkul, overrides]);
 }
 
 export function Bell() {
-  const { user, tugas, matkul } = useStore();
+  const { user, tugas, matkul, overrides } = useStore();
   const [buka, setBuka] = useState(false);
   const [izin, setIzin] = useState<string>(() =>
     typeof Notification === "undefined" ? "default" : Notification.permission
@@ -102,7 +116,7 @@ export function Bell() {
   const [pushPesan, setPushPesan] = useState<string | null>(null);
 
   const ingat = pengingatDeadline(tugas, matkul, user);
-  const jadwal = jadwalHariIni(matkul, user);
+  const jadwal = jadwalHariIni(matkul, user, overrides);
   const badge = ingat.length;
 
   /** Konfirmasi 1x: izin browser + daftarkan push agar bunyi walau web tertutup. */

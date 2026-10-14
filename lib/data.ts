@@ -86,9 +86,156 @@ export interface Tautan {
   deskripsi: string;
   /** Pertemuan virtual 1-16 (khusus kategori materi). Undefined = tanpa label. */
   pertemuan?: number;
+  /** URL gambar/cover opsional (link saja, tanpa upload). "" = pakai ikon. */
+  gambarUrl?: string;
   oleh: string;
   olehId?: string;
   createdAt: string;
+}
+
+/** Semester aktif tunggal: 1 baris, diatur admin. Kalender hanya render di range ini. */
+export interface SemesterAktif {
+  id: string;
+  label: string;
+  /** yyyy-MM-dd */
+  mulai: string;
+  /** yyyy-MM-dd */
+  selesai: string;
+}
+
+export function semesterDefault(): SemesterAktif {
+  const now = new Date();
+  const mulai = new Date(now.getFullYear(), now.getMonth(), 1);
+  const selesai = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { id: "aktif", label: "Semester 1", mulai: fmt(mulai), selesai: fmt(selesai) };
+}
+
+/** "2026-03-02" dalam [mulai, selesai]? Banding string yyyy-MM-dd aman. */
+export function dalamSemester(tgl: string, s: SemesterAktif | null | undefined) {
+  if (!s) return true;
+  return tgl >= s.mulai && tgl <= s.selesai;
+}
+
+export type TipeOverride = "libur" | "pengganti" | "online" | "pindah";
+
+export interface JadwalOverride {
+  id: string;
+  matkulId: string;
+  /** yyyy-MM-dd */
+  tanggal: string;
+  tipe: TipeOverride;
+  jam: string;
+  ruang: string;
+  keterangan: string;
+  oleh: string;
+  olehId?: string;
+  createdAt: string;
+}
+
+export const LABEL_OVERRIDE: Record<TipeOverride, string> = {
+  libur: "Libur",
+  pengganti: "Kelas pengganti",
+  online: "Online",
+  pindah: "Pindah ruang/jam",
+};
+
+/** Sesi efektif pada satu tanggal: jadwal mingguan + override (libur sembunyikan). */
+export function sesiPadaTanggal(
+  daftar: Matkul[],
+  overrides: JadwalOverride[],
+  tanggal: Date,
+  namaHari: string
+) {
+  const kunci =
+    `${tanggal.getFullYear()}-${String(tanggal.getMonth() + 1).padStart(2, "0")}-${String(tanggal.getDate()).padStart(2, "0")}`;
+  const ovHari = overrides.filter((o) => o.tanggal === kunci);
+  const libur = new Map<string, JadwalOverride>();
+  const info = new Map<string, JadwalOverride>();
+  for (const o of ovHari) {
+    if (o.tipe === "libur") libur.set(o.matkulId, o);
+    else info.set(`${o.matkulId}::${o.tipe}::${o.jam}::${o.ruang}`, o);
+  }
+  const target = namaHari.toLowerCase().trim();
+  const biasa = daftar.flatMap((m) =>
+    m.jadwal
+      .filter((j) => j.hari.toLowerCase().trim() === target && !libur.has(m.id))
+      .map((j) => {
+        const ganti = ovHari.find(
+          (o) => o.matkulId === m.id && (o.tipe === "online" || o.tipe === "pindah")
+        );
+        return {
+          m,
+          j: ganti
+            ? {
+                hari: j.hari,
+                jam: ganti.jam || j.jam,
+                ruang: ganti.ruang || j.ruang,
+              }
+            : j,
+          ov: ganti,
+        };
+      })
+  );
+  const tambahan = ovHari
+    .filter((o) => o.tipe === "pengganti")
+    .map((o) => ({
+      m: daftar.find((x) => x.id === o.matkulId),
+      j: { hari: namaHari, jam: o.jam || "Menyusul", ruang: o.ruang || "Menyusul" } as Jadwal,
+      ov: o as JadwalOverride | undefined,
+    }))
+    .filter((x) => !!x.m && !libur.has(x.m!.id))
+    .map((x) => ({ m: x.m!, j: x.j, ov: x.ov }));
+  return { kunci, biasa, tambahan, libur, ovHari };
+}
+
+/** Palet tema + picker bebas (dengan swatch cepat). */
+export const PALET_WARNA = ["#3f8fd1", "#2fa08a", "#e8552f", "#e75d8f", "#7c5cbf", "#e9a13b"];
+
+/** Teks putih atau tinta di atas hex — cegah kuning-terang tak terbaca. */
+export function teksDiAtas(hex: string) {
+  const h = hex.replace("#", "").trim();
+  const penuh = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(penuh.slice(0, 6), 16);
+  if (Number.isNaN(n)) return "#fff";
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.62 ? "#3b2e23" : "#fff";
+}
+
+export const DEFAULT_WARNA_KATEGORI: Record<KategoriTautan, string> = {
+  kumpul: "#2f9459",
+  materi: "#3f8fd1",
+  data: "#7c5cbf",
+  lainnya: "#6f5f4e",
+};
+
+export const LS_WARNA_KATEGORI = "tongban-warna-kategori";
+export const LS_WARNA_KELAS = "tongban-warna-kelas";
+export const WARNA_KELAS_DEFAULT = "#e8552f";
+
+export function muatWarnaKategori(): Record<KategoriTautan, string> {
+  if (typeof window === "undefined") return { ...DEFAULT_WARNA_KATEGORI };
+  try {
+    const raw = localStorage.getItem(LS_WARNA_KATEGORI);
+    if (!raw) return { ...DEFAULT_WARNA_KATEGORI };
+    const o = JSON.parse(raw) as Partial<Record<KategoriTautan, string>>;
+    return { ...DEFAULT_WARNA_KATEGORI, ...o };
+  } catch {
+    return { ...DEFAULT_WARNA_KATEGORI };
+  }
+}
+
+export function muatWarnaKelas(): string {
+  if (typeof window === "undefined") return WARNA_KELAS_DEFAULT;
+  try {
+    return localStorage.getItem(LS_WARNA_KELAS) || WARNA_KELAS_DEFAULT;
+  } catch {
+    return WARNA_KELAS_DEFAULT;
+  }
 }
 
 export const LABEL_KATEGORI: Record<KategoriTautan, string> = {
@@ -204,7 +351,9 @@ export type TipeAktivitas =
   | "selesai"
   | "anggota"
   | "matkul"
-  | "tautan";
+  | "tautan"
+  | "jadwal"
+  | "semester";
 
 export interface Aktivitas {
   id: string;

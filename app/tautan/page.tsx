@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Link2, Plus, Search, Trash2 } from "lucide-react";
+import { ExternalLink, ImagePlus, Link2, Palette, Plus, Search, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   LABEL_KATEGORI,
+  LS_WARNA_KATEGORI,
+  LS_WARNA_KELAS,
   domainDari,
   matkulTerlihat,
+  muatWarnaKategori,
+  muatWarnaKelas,
+  teksDiAtas,
+  urlAman,
   type KategoriTautan,
 } from "@/lib/data";
 import { Shell } from "@/components/shell";
@@ -18,7 +24,7 @@ const BATAS_AWAL = 8;
 const TAMBAH = 12;
 
 export default function TautanPage() {
-  const { user, tautan, matkul, addTautan, hapusTautan } = useStore();
+  const { user, tautan, matkul, addTautan, hapusTautan, notify } = useStore();
   const [filterMk, setFilterMk] = useState("semua");
   const [filterKat, setFilterKat] = useState("semua");
   const [cari, setCari] = useState("");
@@ -29,8 +35,13 @@ export default function TautanPage() {
   const [fKat, setFKat] = useState<KategoriTautan>("kumpul");
   const [fMk, setFMk] = useState("");
   const [fDesk, setFDesk] = useState("");
+  const [fGambar, setFGambar] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [tanyaId, setTanyaId] = useState<string | null>(null);
+  const [warnaKat, setWarnaKat] = useState<Record<KategoriTautan, string>>(() => muatWarnaKategori());
+  const [warnaKelas, setWarnaKelas] = useState(() => muatWarnaKelas());
+  const [aturWarna, setAturWarna] = useState(false);
+  const [gagalGambar, setGagalGambar] = useState<Set<string>>(new Set());
 
   const matkulSaya = matkul.filter((m) => matkulTerlihat(m, user));
   const bolehId = new Set(matkulSaya.map((m) => m.id));
@@ -52,6 +63,17 @@ export default function TautanPage() {
     setBatas(BATAS_AWAL);
   }
 
+  function simpanWarna(nk: Record<KategoriTautan, string>, nkl: string) {
+    setWarnaKat(nk);
+    setWarnaKelas(nkl);
+    try {
+      localStorage.setItem(LS_WARNA_KATEGORI, JSON.stringify(nk));
+      localStorage.setItem(LS_WARNA_KELAS, nkl);
+    } catch {
+      /* abaikan */
+    }
+  }
+
   function kirim(e: React.FormEvent) {
     e.preventDefault();
     const gagal = addTautan({
@@ -60,16 +82,23 @@ export default function TautanPage() {
       url: fUrl,
       kategori: fKat,
       deskripsi: fDesk,
+      gambarUrl: fGambar.trim() || undefined,
     });
     if (gagal) {
       setErr(gagal);
       return;
     }
+    if (fGambar.trim() && !urlAman(fGambar)) {
+      setErr("Link gambar tidak valid — tautan tetap tersimpan tanpa gambar? Kosongkan saja.");
+      return;
+    }
     setFJudul("");
     setFUrl("");
     setFDesk("");
+    setFGambar("");
     setErr(null);
     setTambahBuka(false);
+    notify("Tautan tersimpan.");
   }
 
   function bolehHapus(t: (typeof tautan)[number]) {
@@ -89,16 +118,62 @@ export default function TautanPage() {
             desc="Link kumpul GDrive, materi, spreadsheet data kelas — satu pintu, tidak tenggelam di chat."
           />
         </div>
-        <button
-          onClick={() => {
-            setErr(null);
-            setTambahBuka(true);
-          }}
-          className="btn-hard flex w-full items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-4 py-3 text-[13px] font-extrabold uppercase tracking-widest text-white sm:mt-1 sm:w-auto sm:flex-none sm:px-5 sm:py-2.5"
-        >
-          <Plus size={15} strokeWidth={3} /> Tambah
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAturWarna((v) => !v)}
+            title="Atur warna jenis"
+            className="btn-hard flex items-center justify-center gap-1.5 rounded-full border-2 border-(--color-line) bg-(--color-card) px-4 py-3 text-[13px] font-extrabold uppercase tracking-widest sm:mt-1 sm:py-2.5"
+          >
+            <Palette size={15} /> Warna
+          </button>
+          <button
+            onClick={() => {
+              setErr(null);
+              setTambahBuka(true);
+            }}
+            className="btn-hard flex flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-4 py-3 text-[13px] font-extrabold uppercase tracking-widest text-white sm:mt-1 sm:flex-none sm:px-5 sm:py-2.5"
+          >
+            <Plus size={15} strokeWidth={3} /> Tambah
+          </button>
+        </div>
       </div>
+
+      {aturWarna && (
+        <div className="paper-card mb-3 p-4">
+          <p className="text-[13px] font-extrabold uppercase tracking-widest text-(--color-faint)">
+            Warna tiap jenis + milik kelas
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {KATEGORI.map((k) => (
+              <label key={k} className="flex items-center gap-2 rounded-2xl bg-(--color-cream) px-3 py-2 text-[14px] font-extrabold">
+                <input
+                  type="color"
+                  value={warnaKat[k]}
+                  onChange={(e) => simpanWarna({ ...warnaKat, [k]: e.target.value }, warnaKelas)}
+                  className="h-8 w-10 cursor-pointer rounded-lg border-2 border-(--color-line) bg-transparent p-0.5"
+                />
+                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold" style={{ background: warnaKat[k], color: teksDiAtas(warnaKat[k]) }}>
+                  {LABEL_KATEGORI[k]}
+                </span>
+              </label>
+            ))}
+            <label className="flex items-center gap-2 rounded-2xl bg-(--color-cream) px-3 py-2 text-[14px] font-extrabold">
+              <input
+                type="color"
+                value={warnaKelas}
+                onChange={(e) => simpanWarna(warnaKat, e.target.value)}
+                className="h-8 w-10 cursor-pointer rounded-lg border-2 border-(--color-line) bg-transparent p-0.5"
+              />
+              <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold" style={{ background: warnaKelas, color: teksDiAtas(warnaKelas) }}>
+                Milik kelas
+              </span>
+            </label>
+          </div>
+          <p className="mt-2 text-[12px] font-bold text-(--color-faint)">
+            Tersimpan di HP ini saja — biar tiap anak bebas mengatur tampilannya.
+          </p>
+        </div>
+      )}
 
       <div className="mb-2 mt-4 grid gap-2">
         <span className="field flex min-w-0 items-center gap-2 px-4 py-2.5">
@@ -150,17 +225,40 @@ export default function TautanPage() {
       <div className="flex flex-col gap-3">
         {tampil.map((t) => {
           const m = t.matkulId ? matkul.find((x) => x.id === t.matkulId) : null;
+          const wKat = warnaKat[t.kategori];
+          const wRuang = m ? m.warna : warnaKelas;
+          const gbr = t.gambarUrl && !gagalGambar.has(t.id) ? t.gambarUrl : null;
           return (
-            <article key={t.id} className="paper-card flex items-start gap-3 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-(--color-daun-soft) text-(--color-daun)">
-                <Link2 size={18} />
-              </span>
+            <article key={t.id} className="paper-card flex items-start gap-3 overflow-hidden p-4">
+              {gbr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={gbr}
+                  alt=""
+                  onError={() => setGagalGambar((p) => new Set(p).add(t.id))}
+                  className="h-12 w-12 shrink-0 rounded-2xl border-2 border-(--color-line) object-cover"
+                />
+              ) : (
+                <span
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+                  style={{ background: `${wKat}22`, color: wKat }}
+                >
+                  <Link2 size={20} />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-(--color-ink) px-2.5 py-0.5 text-[11px] font-extrabold text-[#fff6e8] dark:text-[#181222]">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
+                    style={{ background: wKat, color: teksDiAtas(wKat) }}
+                  >
                     {LABEL_KATEGORI[t.kategori]}
                   </span>
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-(--color-faint)">
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
+                    style={{ background: `${wRuang}22`, color: "var(--color-ink)" }}
+                  >
+                    <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: wRuang }} />
                     {m ? m.nama : "Milik kelas"} · {domainDari(t.url)}
                   </span>
                 </div>
@@ -265,6 +363,20 @@ export default function TautanPage() {
               className="field mt-2 w-full px-4 py-2.5 text-[15px] outline-none"
               maxLength={500}
             />
+            <label className="field mt-2 flex items-center gap-2 px-4 py-2.5 text-[15px] outline-none">
+              <ImagePlus size={17} className="shrink-0 text-(--color-faint)" />
+              <input
+                value={fGambar}
+                onChange={(e) => setFGambar(e.target.value)}
+                placeholder="Link gambar/cover (opsional, mis. https://…/logo.png)"
+                inputMode="url"
+                className="w-full bg-transparent outline-none"
+              />
+            </label>
+            {fGambar.trim() && urlAman(fGambar) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={urlAman(fGambar)!} alt="Pratinjau" className="mt-2 h-20 w-20 rounded-2xl border-2 border-(--color-line) object-cover" />
+            )}
             {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               <button
@@ -294,7 +406,10 @@ export default function TautanPage() {
         yaLabel="Ya, hapus"
         onBatal={() => setTanyaId(null)}
         onYa={() => {
-          if (tanyaId) hapusTautan(tanyaId);
+          if (tanyaId) {
+            hapusTautan(tanyaId);
+            notify("Tautan dihapus.", "gagal");
+          }
           setTanyaId(null);
         }}
       />

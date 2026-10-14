@@ -410,6 +410,52 @@ begin
 exception when duplicate_object then null;
 end $$;
 
+-- ============ SEMESTER AKTIF (single baris) + OVERRIDE JADWAL + GAMBAR TAUTAN ============
+create table if not exists public.semester_aktif (
+  id text primary key,
+  label text not null default 'Semester 1',
+  mulai date not null default current_date,
+  selesai date not null default (current_date + 120)
+);
+insert into public.semester_aktif (id, label, mulai, selesai)
+values ('aktif', 'Semester 1', current_date, current_date + 120)
+on conflict (id) do nothing;
+
+create table if not exists public.jadwal_override (
+  id text primary key,
+  matkul_id text not null references public.matkul(id) on delete cascade,
+  tanggal date not null,
+  tipe text not null default 'libur' check (tipe in ('libur','pengganti','online','pindah')),
+  jam text not null default '',
+  ruang text not null default '',
+  keterangan text not null default '' check (char_length(keterangan) <= 500),
+  oleh text not null default '',
+  oleh_id text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.tautan add column if not exists gambar_url text not null default '';
+alter table public.semester_aktif enable row level security;
+alter table public.jadwal_override enable row level security;
+drop policy if exists "baca_kelas" on public.semester_aktif;
+drop policy if exists "baca_kelas" on public.jadwal_override;
+drop policy if exists "admin_semester" on public.semester_aktif;
+drop policy if exists "kelola_override" on public.jadwal_override;
+create policy "baca_kelas" on public.semester_aktif for select to authenticated using (true);
+create policy "baca_kelas" on public.jadwal_override for select to authenticated using (true);
+create policy "admin_semester" on public.semester_aktif for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "kelola_override" on public.jadwal_override for all to authenticated using (public.is_admin() or public.is_pj(matkul_id)) with check (public.is_admin() or public.is_pj(matkul_id));
+do $$
+begin
+  alter publication supabase_realtime add table public.jadwal_override;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.semester_aktif;
+exception when duplicate_object then null;
+end $$;
+
 -- ============ SEED: 6 matkul Offering B(EST) PBM (sumber: PLM/plm.db) ============
 -- ON CONFLICT DO NOTHING agar aman dijalankan ulang tanpa error duplikat.
 insert into public.matkul (id, kode, nama, dosen, sks, semester, kelompok, jadwal, warna, kontrak) values

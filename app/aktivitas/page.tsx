@@ -2,6 +2,8 @@
 
 import {
   BookPlus,
+  CalendarClock,
+  CalendarDays,
   CheckCircle2,
   History,
   Lightbulb,
@@ -23,6 +25,8 @@ const IKON: Record<TipeAktivitas, { icon: typeof Megaphone; bg: string; fg: stri
   anggota: { icon: UserPlus, bg: "bg-(--color-pink-soft)", fg: "text-(--color-pink)" },
   matkul: { icon: BookPlus, bg: "bg-(--color-cream)", fg: "text-(--color-soft)" },
   tautan: { icon: Link2, bg: "bg-(--color-daun-soft)", fg: "text-(--color-daun)" },
+  jadwal: { icon: CalendarClock, bg: "bg-(--color-apel-soft)", fg: "text-(--color-apel)" },
+  semester: { icon: CalendarDays, bg: "bg-(--color-sky-soft)", fg: "text-(--color-sky)" },
 };
 
 export function waktuLalu(isoStr: string) {

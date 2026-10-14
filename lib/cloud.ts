@@ -6,10 +6,14 @@ import {
   ADMIN_NIM,
   namaRapi,
   seedUsers,
+  semesterDefault,
   type Aktivitas,
   type Catatan,
+  type JadwalOverride,
   type Matkul,
+  type SemesterAktif,
   type Tautan,
+  type TipeOverride,
   type Tugas,
   type User,
 } from "./data";
@@ -21,6 +25,8 @@ export interface CloudData {
   catatan: Catatan[];
   tautan: Tautan[];
   aktivitas: Aktivitas[];
+  semester: SemesterAktif;
+  overrides: JadwalOverride[];
 }
 
 const emailDariNim = (nim: string) =>
@@ -144,6 +150,33 @@ function mapTautan(r: Row): Tautan {
     kategori: kat === "kumpul" || kat === "materi" || kat === "data" ? kat : "lainnya",
     deskripsi: s(r.deskripsi),
     pertemuan: num(r.pertemuan),
+    gambarUrl: s(r.gambar_url) || undefined,
+    oleh: s(r.oleh),
+    olehId: s(r.oleh_id) || undefined,
+    createdAt: s(r.created_at, new Date().toISOString()),
+  };
+}
+
+function mapSemester(r: Row): SemesterAktif {
+  const fb = semesterDefault();
+  return {
+    id: "aktif",
+    label: s(r.label, fb.label),
+    mulai: /^\d{4}-\d{2}-\d{2}/.test(s(r.mulai)) ? s(r.mulai).slice(0, 10) : fb.mulai,
+    selesai: /^\d{4}-\d{2}-\d{2}/.test(s(r.selesai)) ? s(r.selesai).slice(0, 10) : fb.selesai,
+  };
+}
+
+function mapOverride(r: Row): JadwalOverride {
+  const t = s(r.tipe);
+  return {
+    id: s(r.id),
+    matkulId: s(r.matkul_id),
+    tanggal: /^\d{4}-\d{2}-\d{2}/.test(s(r.tanggal)) ? s(r.tanggal).slice(0, 10) : "",
+    tipe: t === "pengganti" || t === "online" || t === "pindah" ? (t as TipeOverride) : "libur",
+    jam: s(r.jam),
+    ruang: s(r.ruang),
+    keterangan: s(r.keterangan),
     oleh: s(r.oleh),
     olehId: s(r.oleh_id) || undefined,
     createdAt: s(r.created_at, new Date().toISOString()),
@@ -156,7 +189,8 @@ function mapAktivitas(r: Row): Aktivitas {
     id: s(r.id),
     tipe:
       tipe === "catatan" || tipe === "usulan" || tipe === "resmi" || tipe === "selesai" ||
-      tipe === "anggota" || tipe === "matkul" || tipe === "tautan"
+      tipe === "anggota" || tipe === "matkul" || tipe === "tautan" ||
+      tipe === "jadwal" || tipe === "semester"
         ? (tipe as Aktivitas["tipe"])
         : "catatan",
     teks: s(r.teks),
@@ -169,13 +203,15 @@ export async function cloudMuatSemua(): Promise<CloudData | null> {
   const sb = supabase();
   if (!sb) return null;
   try {
-    const [u, m, t, c, l, a] = await Promise.all([
+    const [u, m, t, c, l, a, sem, ov] = await Promise.all([
       sb.from("profiles").select("id,nama,nim,email,role").order("nama"),
       sb.from("matkul").select("*"),
       sb.from("tugas").select("*").order("created_at", { ascending: false }).limit(500),
       sb.from("catatan_tugas").select("*").order("created_at", { ascending: false }).limit(500),
       sb.from("tautan").select("*").order("created_at", { ascending: false }).limit(300),
       sb.from("aktivitas").select("*").order("created_at", { ascending: false }).limit(120),
+      sb.from("semester_aktif").select("*").eq("id", "aktif").maybeSingle(),
+      sb.from("jadwal_override").select("*").order("tanggal", { ascending: true }).limit(500),
     ]);
     if (u.error || m.error) return null;
     return {
@@ -188,6 +224,8 @@ export async function cloudMuatSemua(): Promise<CloudData | null> {
         const x = mapAktivitas(r);
         return { ...x, waktu: x.waktu };
       }),
+      semester: sem.data ? mapSemester(sem.data as Row) : semesterDefault(),
+      overrides: ((ov.data ?? []) as Row[]).map(mapOverride).filter((o) => o.tanggal && o.matkulId),
     };
   } catch {
     return null;
@@ -204,6 +242,8 @@ export function cloudSubscribe(cb: () => void) {
     .on("postgres_changes", { event: "*", schema: "public", table: "catatan_tugas" }, cb)
     .on("postgres_changes", { event: "*", schema: "public", table: "tautan" }, cb)
     .on("postgres_changes", { event: "*", schema: "public", table: "aktivitas" }, cb)
+    .on("postgres_changes", { event: "*", schema: "public", table: "jadwal_override" }, cb)
+    .on("postgres_changes", { event: "*", schema: "public", table: "semester_aktif" }, cb)
     .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, cb)
     .subscribe();
   return () => {
@@ -268,7 +308,7 @@ export async function cloudAmbilUser(): Promise<User | null> {
   }
 }
 
-type Tbl = "matkul" | "tugas" | "catatan_tugas" | "tautan" | "aktivitas" | "profiles";
+type Tbl = "matkul" | "tugas" | "catatan_tugas" | "tautan" | "aktivitas" | "profiles" | "jadwal_override" | "semester_aktif";
 
 export async function cloudUpsert(tbl: Tbl, row: Row) {
   const sb = supabase();
@@ -276,13 +316,14 @@ export async function cloudUpsert(tbl: Tbl, row: Row) {
   try {
     const { error } = await sb.from(tbl).upsert(row, { onConflict: "id" });
     if (!error) return;
-    // DB lama belum punya kolom baru (drive_url/pertemuan) → coba lagi tanpa kolom itu
+    // DB lama belum punya kolom baru (drive_url/pertemuan/gambar_url) → coba lagi tanpa kolom itu
     // agar update lain tetap tersimpan, bukan gagal total.
     const msg = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`;
-    if (/drive_url|pertemuan/i.test(msg)) {
+    if (/drive_url|pertemuan|gambar_url/i.test(msg)) {
       const salin = { ...row };
       delete salin.drive_url;
       delete salin.pertemuan;
+      delete salin.gambar_url;
       try {
         await sb.from(tbl).upsert(salin, { onConflict: "id" });
       } catch {
@@ -355,8 +396,28 @@ export const keRowTautan = (t: Tautan): Row => ({
   kategori: t.kategori,
   deskripsi: t.deskripsi,
   pertemuan: t.pertemuan ?? null,
+  gambar_url: t.gambarUrl ?? "",
   oleh: t.oleh,
   oleh_id: t.olehId ?? null,
+});
+
+export const keRowSemester = (sem: SemesterAktif): Row => ({
+  id: "aktif",
+  label: sem.label,
+  mulai: sem.mulai,
+  selesai: sem.selesai,
+});
+
+export const keRowOverride = (o: JadwalOverride): Row => ({
+  id: o.id,
+  matkul_id: o.matkulId,
+  tanggal: o.tanggal,
+  tipe: o.tipe,
+  jam: o.jam,
+  ruang: o.ruang,
+  keterangan: o.keterangan,
+  oleh: o.oleh,
+  oleh_id: o.olehId ?? null,
 });
 
 export const keRowAktivitas = (a: Aktivitas): Row => ({

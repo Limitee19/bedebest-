@@ -1,38 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpenText, Plus, RotateCcw, Trash2, UserRound, Users } from "lucide-react";
+import { BookOpenText, CalendarDays, Plus, RotateCcw, Trash2, UserRound, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Shell } from "@/components/shell";
 import { SectionTitle } from "@/components/bits";
 import { ADMIN_EMAIL, ADMIN_NIM } from "@/lib/data";
 import { MatkulCard } from "@/components/matkul-card";
-import { ModalUbahMatkul } from "@/components/matkul-form";
-
-const WARNA = ["#3f8fd1", "#2fa08a", "#e8552f", "#e75d8f", "#7c5cbf", "#e9a13b"];
+import { ModalTambahMatkul, ModalUbahMatkul } from "@/components/matkul-form";
+import { ConfirmModal } from "@/components/confirm";
 
 const TABS = [
   { id: "anggota", label: "Anggota", icon: Users },
   { id: "pj", label: "PJ Matkul", icon: UserRound },
   { id: "matkul", label: "Matkul", icon: BookOpenText },
   { id: "peserta", label: "Peserta", icon: Users },
+  { id: "semester", label: "Semester", icon: CalendarDays },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
 export default function AdminPage() {
-  const { user, users, addUser, removeUser, resetPassword, matkul, addMatkul, removeMatkul } = useStore();
+  const { user, users, addUser, removeUser, resetPassword, matkul, removeMatkul, notify } = useStore();
   const [tab, setTab] = useState<TabId>("anggota");
   const [editMk, setEditMk] = useState<string | null>(null);
+  const [tambahMk, setTambahMk] = useState(false);
   const [nama, setNama] = useState("");
   const [nim, setNim] = useState("");
   const [err, setErr] = useState<string | null>(null);
-
-  // form matkul
-  const [fNama, setFNama] = useState("");
-  const [fKode, setFKode] = useState("");
-  const [fDosen, setFDosen] = useState("");
-  const [fSks, setFSks] = useState(2);
+  const [hapusUserId, setHapusUserId] = useState<string | null>(null);
+  const [hapusMkId, setHapusMkId] = useState<string | null>(null);
 
   if (!user) {
     return (
@@ -57,24 +54,12 @@ export default function AdminPage() {
     e.preventDefault();
     const er = addUser(nama.trim(), nim.trim());
     if (er) setErr(er);
-    else { setNama(""); setNim(""); setErr(null); }
-  }
-
-  function tambahMatkul(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fNama.trim() || !fKode.trim()) return;
-    addMatkul({
-      kode: fKode.trim().toUpperCase(),
-      nama: fNama.trim(),
-      dosen: fDosen.split(",").map((s) => s.trim()).filter(Boolean),
-      sks: fSks,
-      semester: 1,
-      kelompok: "B – B",
-      jadwal: [{ hari: "Menyusul", jam: "Menyusul", ruang: "Menyusul" }],
-      warna: WARNA[matkul.length % WARNA.length],
-      kontrak: "Kontrak menyusul — admin akan melengkapi.",
-    });
-    setFNama(""); setFKode(""); setFDosen(""); setFSks(2);
+    else {
+      setNama("");
+      setNim("");
+      setErr(null);
+      notify(`Akun “${nama.trim()}” dibuat. Sandi = NIM.`);
+    }
   }
 
   return (
@@ -135,11 +120,11 @@ export default function AdminPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <span className="inline-flex gap-1.5">
-                        <button title="Reset sandi ke NIM" onClick={()=>{ resetPassword(u.id); alert(`Sandi ${u.nama} direset ke NIM-nya (${u.nim})`); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-lemon-soft)">
+                        <button title="Reset sandi ke NIM" onClick={()=>{ resetPassword(u.id); notify(`Sandi ${u.nama} direset ke NIM-nya.`); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-lemon-soft)">
                           <RotateCcw size={15} />
                         </button>
                         {u.email !== ADMIN_EMAIL && (
-                          <button title="Hapus" onClick={()=>{ if (confirm(`Hapus ${u.nama}?`)) removeUser(u.id); }} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-apel-soft) hover:text-(--color-apel)">
+                          <button title="Hapus" onClick={()=> setHapusUserId(u.id)} className="rounded-xl border-2 border-(--color-line) bg-(--color-card) p-2 hover:bg-(--color-apel-soft) hover:text-(--color-apel)">
                             <Trash2 size={15} />
                           </button>
                         )}
@@ -171,29 +156,27 @@ export default function AdminPage() {
 
       {tab === "matkul" && (
         <section>
-          <h3 className="font-display mb-3 text-[22px] font-bold">Mata kuliah ({matkul.length})</h3>
-          <form onSubmit={tambahMatkul} className="paper-card mb-4 grid gap-2 p-4 sm:grid-cols-2 md:grid-cols-5">
-            <input value={fKode} onChange={(e)=>setFKode(e.target.value)} placeholder="Kode, mis. PMDR236099" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none" required />
-            <input value={fNama} onChange={(e)=>setFNama(e.target.value)} placeholder="Nama matkul" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none sm:col-span-2 md:col-span-2" required />
-            <input value={fDosen} onChange={(e)=>setFDosen(e.target.value)} placeholder="Dosen (koma bila >1)" className="field min-w-0 px-4 py-2.5 text-[15px] outline-none sm:col-span-2 md:col-span-1" />
-            <span className="flex gap-2 sm:col-span-2 md:col-span-1">
-              <input value={fSks} onChange={(e)=>setFSks(Number(e.target.value))} type="number" min={1} max={12} title="SKS" className="field w-20 shrink-0 px-4 py-2.5 text-[15px] outline-none" />
-              <button className="btn-hard flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-(--color-daun) px-3 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white">
-                <Plus size={15} strokeWidth={3} /> Tambah
-              </button>
-            </span>
-          </form>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="font-display text-[22px] font-bold">Mata kuliah ({matkul.length})</h3>
+            <button
+              onClick={() => setTambahMk(true)}
+              className="btn-hard flex items-center gap-1.5 rounded-full bg-(--color-daun) px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-white"
+            >
+              <Plus size={15} strokeWidth={3} /> Tambah matkul
+            </button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {matkul.map((m) => (
               <MatkulCard
                 key={m.id}
                 m={m}
                 onEdit={() => setEditMk(m.id)}
-                onDelete={() => { if (confirm(`Hapus ${m.nama}? Tugasnya ikut terhapus.`)) removeMatkul(m.id); }}
+                onDelete={() => setHapusMkId(m.id)}
               />
             ))}
           </div>
           {editMk && <ModalUbahMatkul matkulId={editMk} onTutup={() => setEditMk(null)} />}
+          {tambahMk && <ModalTambahMatkul onTutup={() => setTambahMk(false)} />}
         </section>
       )}
 
@@ -212,7 +195,105 @@ export default function AdminPage() {
           </div>
         </section>
       )}
+
+      {tab === "semester" && <SemesterAtur />}
+
+      <ConfirmModal
+        open={hapusUserId !== null}
+        bahaya
+        judul="Hapus akun ini?"
+        pesan="Akun hilang permanen dan tidak bisa dikembalikan."
+        batalLabel="Batal"
+        yaLabel="Ya, hapus"
+        onBatal={() => setHapusUserId(null)}
+        onYa={() => {
+          if (hapusUserId) {
+            const t = users.find((u) => u.id === hapusUserId);
+            removeUser(hapusUserId);
+            if (t) notify(`Akun “${t.nama}” dihapus.`);
+          }
+          setHapusUserId(null);
+        }}
+      />
+      <ConfirmModal
+        open={hapusMkId !== null}
+        bahaya
+        judul="Hapus matkul ini?"
+        pesan="Matkul + semua tugas dan catatannya ikut terhapus permanen."
+        batalLabel="Batal"
+        yaLabel="Ya, hapus"
+        onBatal={() => setHapusMkId(null)}
+        onYa={() => {
+          if (hapusMkId) {
+            const t = matkul.find((m) => m.id === hapusMkId);
+            removeMatkul(hapusMkId);
+            if (t) notify(`Matkul “${t.nama}” dihapus.`);
+          }
+          setHapusMkId(null);
+        }}
+      />
     </Shell>
+  );
+}
+
+function SemesterAtur() {
+  const { semester, simpanSemester, notify } = useStore();
+  const [label, setLabel] = useState(semester.label);
+  const [mulai, setMulai] = useState(semester.mulai);
+  const [selesai, setSelesai] = useState(semester.selesai);
+  const [err, setErr] = useState<string | null>(null);
+
+  function hitungPekan(a: string, b: string) {
+    const d1 = new Date(`${a}T12:00:00`).getTime();
+    const d2 = new Date(`${b}T12:00:00`).getTime();
+    if (Number.isNaN(d1) || Number.isNaN(d2) || d2 < d1) return 0;
+    return Math.round((d2 - d1) / 86400000 / 7);
+  }
+
+  function kirim(e: React.FormEvent) {
+    e.preventDefault();
+    const gagal = simpanSemester({ label, mulai, selesai });
+    if (gagal) {
+      setErr(gagal);
+      return;
+    }
+    setErr(null);
+    notify(`${label.trim() || "Semester"} tersimpan — kalender ikut update.`);
+  }
+
+  return (
+    <section className="paper-card p-4 md:p-6">
+      <h3 className="font-display text-[22px] font-bold">Semester aktif</h3>
+      <p className="mt-0.5 text-[14px] text-(--color-soft)">
+        Satu semester aktif. Kalender hanya menampilkan jadwal di rentang ini. Ganti tanggal tiap
+        semester baru — matkul lama otomatis ikut semester baru.
+      </p>
+      <form onSubmit={kirim} className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label, mis. Semester 2"
+          maxLength={60}
+          className="field min-w-0 px-4 py-2.5 text-[15px] font-bold outline-none sm:col-span-2 md:col-span-1"
+          required
+        />
+        <label className="field flex items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
+          Mulai
+          <input type="date" value={mulai} onChange={(e) => setMulai(e.target.value)} className="bg-transparent outline-none" required />
+        </label>
+        <label className="field flex items-center gap-2 px-4 py-2.5 text-[14px] font-bold">
+          Selesai
+          <input type="date" value={selesai} onChange={(e) => setSelesai(e.target.value)} className="bg-transparent outline-none" required />
+        </label>
+        <button className="btn-hard rounded-full bg-(--color-ink) px-4 py-2.5 text-[13px] font-extrabold uppercase tracking-widest text-[#fff6e8] dark:text-[#181222]">
+          Simpan semester
+        </button>
+      </form>
+      {err && <p className="mt-2 text-[13px] font-extrabold text-(--color-apel)">{err}</p>}
+      <p className="mt-2 text-[13px] font-bold text-(--color-soft)">
+        Sekarang: {semester.label} · {semester.mulai} → {semester.selesai} · ±{hitungPekan(semester.mulai, semester.selesai)} pekan
+      </p>
+    </section>
   );
 }
 
