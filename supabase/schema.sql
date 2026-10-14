@@ -181,10 +181,8 @@ drop policy if exists "admin_tautan" on public.tautan;
 drop policy if exists "pj_tautan" on public.tautan;
 drop policy if exists "admin_tugas_insert" on public.tugas;
 drop policy if exists "pj_tugas_insert" on public.tugas;
-drop policy if exists "baca_kelas" on public.semester_aktif;
-drop policy if exists "baca_kelas" on public.jadwal_override;
-drop policy if exists "admin_semester" on public.semester_aktif;
-drop policy if exists "kelola_override" on public.jadwal_override;
+-- Catatan: drop policy semester_aktif/jadwal_override ada di blok pembuatan
+-- tabelnya (di bawah), karena tabel belum ada saat baris ini jalan pertama kali.
 
 -- Semua anggota kelas yang login boleh baca semuanya
 create policy "baca_kelas" on public.profiles for select to authenticated using (true);
